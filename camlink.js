@@ -15,21 +15,23 @@ async function aesKey(keyHex){
   return crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',seed),'AES-GCM',false,['encrypt','decrypt']);
 }
 async function seal(key,obj){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,enc.encode(JSON.stringify(obj))));return b64(iv)+'.'+b64(ct);}
+async function sealBytes(key,bytes){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,bytes));const o=new Uint8Array(12+ct.length);o.set(iv);o.set(ct,12);return o;}
+async function openBytes(key,b){return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},key,b.slice(12)));}
 async function open(key,text){const [a,b]=text.split('.');return JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(a)},key,unb64(b))));}
 
 // Minimal MQTT 3.1.1 over WebSocket: connect, subscribe one topic, publish, keepalive, auto-reconnect.
-function relay(topic,onText,onUp){
+function relay(topic,onText,onUp,onBytes){
   const st={ws:null,up:false,buf:new Uint8Array(0),ping:0,closed:false};
   const mstr=t=>{const b=enc.encode(t);return [b.length>>8,b.length&255,...b];};
-  const pkt=(type,body)=>{const len=[];let n=body.length;do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;len.push(d);}while(n>0);return new Uint8Array([type,...len,...body]);};
+  const pkt=(type,body)=>{const len=[];let n=body.length;do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;len.push(d);}while(n>0);const o=new Uint8Array(1+len.length+body.length);o[0]=type;o.set(len,1);o.set(body,1+len.length);return o;};
   function parse(){
     while(st.buf.length>=2){
       let mul=1,len=0,i=1,d;
       do{if(i>=st.buf.length)return;d=st.buf[i++];len+=(d&127)*mul;mul*=128;}while(d&128);
       if(st.buf.length<i+len)return;
       const b0=st.buf[0],type=b0>>4,body=st.buf.slice(i,i+len);st.buf=st.buf.slice(i+len);
-      if(type===2){st.up=true;st.ws.send(pkt(0x82,[0,1,...mstr(topic),0]));clearInterval(st.ping);st.ping=setInterval(()=>{try{st.ws.send(new Uint8Array([0xC0,0]));}catch{}},20000);onUp&&onUp(true);}
-      else if(type===3){const tl=(body[0]<<8)|body[1],start=2+tl+(((b0>>1)&3)?2:0);try{onText(dec.decode(body.slice(start)));}catch{}}
+      if(type===2){st.up=true;st.ws.send(pkt(0x82,[0,1,...mstr(topic),0]));if(st.extra)st.ws.send(pkt(0x82,[0,2,...mstr(st.extra),0]));clearInterval(st.ping);st.ping=setInterval(()=>{try{st.ws.send(new Uint8Array([0xC0,0]));}catch{}},20000);onUp&&onUp(true);}
+      else if(type===3){const tl=(body[0]<<8)|body[1],t=dec.decode(body.slice(2,2+tl)),start=2+tl+(((b0>>1)&3)?2:0);try{if(t===topic)onText(dec.decode(body.slice(start)));else if(onBytes)onBytes(t,body.slice(start));}catch{}}
     }
   }
   function connect(){
@@ -43,6 +45,8 @@ function relay(topic,onText,onUp){
   connect();
   return {
     send(text){if(st.up&&st.ws)st.ws.send(pkt(0x30,[...mstr(topic),...enc.encode(text)]));return st.up;},
+    sendBytes(t,bytes){if(!st.up||!st.ws||st.ws.bufferedAmount>400000)return false;const h=mstr(t),m=new Uint8Array(h.length+bytes.length);m.set(h);m.set(bytes,h.length);st.ws.send(pkt(0x30,m));return true;},
+    subscribe(t){st.extra=t;if(st.up&&st.ws)st.ws.send(pkt(0x82,[0,2,...mstr(t),0]));},
     get up(){return st.up;},
     close(){st.closed=true;try{st.ws&&st.ws.close();}catch{}}
   };
@@ -54,10 +58,21 @@ function iceDone(pc,ms=2500){
 
 // Laptop side: answer every phone that asks, sending the webcam stream.
 async function send(id,keyHex,stream,onStatus=()=>{}){
-  const key=await aesKey(keyHex),peers=new Map();let viewers=0;
-  const count=()=>{viewers=[...peers.values()].filter(p=>p.connectionState==='connected').length;onStatus({relay:R.up,viewers});};
+  const key=await aesKey(keyHex),peers=new Map(),photoUntil=new Map();let viewers=0;
+  const photoViewers=()=>{const now=Date.now();for(const [k,t] of photoUntil)if(t<now)photoUntil.delete(k);return photoUntil.size;};
+  const count=()=>{viewers=[...peers.values()].filter(p=>p.connectionState==='connected').length+photoViewers();onStatus({relay:R.up,viewers});};
+  const vid=document.createElement('video');vid.muted=true;vid.playsInline=true;vid.srcObject=stream;vid.play().catch(()=>{});
+  const cv=document.createElement('canvas');let busy=false;
+  setInterval(async()=>{
+    if(busy||!photoViewers()||!R.up||!vid.videoWidth)return;busy=true;
+    try{const w=640,h=Math.round(640*vid.videoHeight/vid.videoWidth);cv.width=w;cv.height=h;cv.getContext('2d').drawImage(vid,0,0,w,h);
+      const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.55));
+      R.sendBytes(`rarm1/${id}/j`,await sealBytes(key,new Uint8Array(await blob.arrayBuffer())));}catch{}
+    busy=false;
+  },150);
   const R=relay(`rarm1/${id}/v`,async text=>{
     let m;try{m=await open(key,text);}catch{return;}
+    if(m.t==='photo'&&m.from){photoUntil.set(m.from,Date.now()+12000);count();return;}
     if(m.t!=='offer'||!m.from||!m.sdp)return;
     const old=peers.get(m.from);if(old){try{old.close();}catch{}peers.delete(m.from);}
     if(peers.size>=4){const [k,p]=peers.entries().next().value;try{p.close();}catch{}peers.delete(k);}
@@ -77,8 +92,19 @@ async function send(id,keyHex,stream,onStatus=()=>{}){
 }
 
 // Phone side: ask the laptop for video and keep retrying until it plays.
-async function view(id,keyHex,video,onStatus=()=>{}){
-  const key=await aesKey(keyHex),me=rid();let pc=null,asked=0,live=false,retry=0;
+async function view(id,keyHex,video,onStatus=()=>{},img=null){
+  const key=await aesKey(keyHex),me=rid();let pc=null,asked=0,live=false,retry=0,tries=0,photo=false,photoAt=0,photoAsk=0,url='';
+  function startPhoto(){
+    if(photo||!img)return;photo=true;R.subscribe(`rarm1/${id}/j`);
+    const askP=async()=>{if(!live)R.send(await seal(key,{t:'photo',from:me}));};askP();photoAsk=setInterval(askP,4000);
+    setInterval(()=>{if(photo&&!live&&photoAt&&Date.now()-photoAt>5000){photoAt=0;status('waiting');}},1000);
+  }
+  async function onFrame(t,b){
+    if(live||!photo||t!==`rarm1/${id}/j`)return;
+    let jpg;try{jpg=await openBytes(key,b);}catch{return;}
+    const u=URL.createObjectURL(new Blob([jpg],{type:'image/jpeg'}));img.onload=()=>{if(url)URL.revokeObjectURL(url);url=u;};img.src=u;
+    if(!photoAt)status('live-photo');photoAt=Date.now();
+  }
   const status=s=>onStatus(s);
   async function ask(){
     if(!R.up)return;
@@ -90,16 +116,16 @@ async function view(id,keyHex,video,onStatus=()=>{}){
       if(s==='connected'){live=true;status('live');}
       else if(s==='failed'||s==='disconnected'||s==='closed'){live=false;status('lost');schedule(2500);}};
     await pc.setLocalDescription(await pc.createOffer());await iceDone(pc);
-    asked=Date.now();status('asking');
+    asked=Date.now();if(!(photo&&photoAt))status('asking');if(++tries>=2)startPhoto();
     R.send(await seal(key,{t:'offer',from:me,sdp:pc.localDescription.sdp}));
     schedule(9000,true);
   }
-  function schedule(ms,onlyIfNotLive=false){clearTimeout(retry);retry=setTimeout(()=>{if(onlyIfNotLive&&live)return;if(!live)status('waiting');ask();},ms);}
+  function schedule(ms,onlyIfNotLive=false){clearTimeout(retry);if(photo&&ms<20000)ms=Math.max(ms,30000);retry=setTimeout(()=>{if(onlyIfNotLive&&live)return;if(!live&&!(photo&&photoAt))status('waiting');ask();},ms);}
   const R=relay(`rarm1/${id}/v`,async text=>{
     let m;try{m=await open(key,text);}catch{return;}
     if(m.t==='hello'&&!live){schedule(300);}
-    else if(m.t==='answer'&&m.to===me&&pc&&pc.signalingState==='have-local-offer'){try{await pc.setRemoteDescription({type:'answer',sdp:m.sdp});status('connecting');}catch{}}
-  },up=>{if(up&&!live)schedule(200);else if(!up&&!live)status('waiting');});
+    else if(m.t==='answer'&&m.to===me&&pc&&pc.signalingState==='have-local-offer'){try{await pc.setRemoteDescription({type:'answer',sdp:m.sdp});if(!(photo&&photoAt))status('connecting');}catch{}}
+  },up=>{if(up&&!live)schedule(200);else if(!up&&!live)status('waiting');},onFrame);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!live)schedule(200);});
   return {get live(){return live;}};
 }

@@ -60,6 +60,10 @@ async function start(){
  for(const t of stream.getTracks())t.onended=()=>{set('camP','camT','bad','Camera: stopped');$('say').textContent='The camera stopped. Reload this page.';};
 }
 $('start').onclick=start;
+// Self-update: when a newer camera page is published, reload (link and camera permission are remembered).
+let ver='';
+async function checkVer(){try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();if(ver&&v&&v!==ver)location.reload();if(v)ver=v;}catch{}}
+checkVer();setInterval(checkVer,120000);
 start();
 })();
 </script>
