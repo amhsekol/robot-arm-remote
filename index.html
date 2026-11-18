@@ -108,6 +108,52 @@ details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;f
 }
 @media(max-width:359px){.app{padding-inline:8px}.pad{gap:8px}.card{padding:8px}.move{min-height:64px}.grid{grid-template-columns:1fr 1fr}.bar h1{font-size:var(--lg)}}
 @media(max-height:700px) and (max-width:859px){.move{min-height:60px}}
+/* ---------- drive view: camera fills the screen, controls sit on top like a cab ---------- */
+.cab{display:none}
+body.drive{overflow:hidden}
+body.drive .app{display:block;padding:0;max-width:none}
+body.drive .bar,body.drive .pad,body.drive .keys,body.drive .tip{display:none}
+body.drive .stage{position:fixed;inset:0;border-radius:0;z-index:1;display:grid;place-items:center;background:#000}
+body.drive .stage video{width:100vw;height:100dvh;aspect-ratio:auto;object-fit:cover}
+body.drive .stage svg.arm{width:min(100vw,150dvh);height:auto}
+body.drive .hud{inset:max(12px,env(safe-area-inset-top)) auto auto 12px}
+body.drive .compass{display:none}
+body.drive .stopbar{left:50%;right:auto;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:0;background:none;z-index:4}
+body.drive .stopbar button{width:96px;height:96px;min-height:0;border-radius:50%;font-size:1.05rem;box-shadow:0 0 0 6px oklch(15% .01 255 / .55),0 8px 30px oklch(0% 0 0 / .5)}
+body.drive #real{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:auto;min-height:44px;padding:0 18px;margin:0;z-index:4;background:oklch(15% .01 255 / .7);backdrop-filter:blur(6px)}
+body.drive #real.on{background:var(--c1)}
+body.drive .cab{display:block}
+.cabtop{position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:4;display:flex;gap:8px}
+.cabtop .icon{background:oklch(15% .01 255 / .7);backdrop-filter:blur(6px)}
+.cabtip{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 54px);left:50%;transform:translateX(-50%);z-index:3;font-size:var(--sm);font-weight:700;background:oklch(15% .01 255 / .6);padding:6px 14px;border-radius:999px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.cabtip:empty{display:none}
+.sight{position:fixed;left:50%;top:50%;width:min(34vw,220px);aspect-ratio:1;transform:translate(-50%,-50%);z-index:2;pointer-events:none;opacity:.45}
+.stick{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;width:min(44vw,236px);aspect-ratio:1;display:grid;grid-template:1fr 1fr 1fr/1fr 1fr 1fr;gap:6px;padding:8px;border-radius:50%;background:oklch(15% .01 255 / .45);backdrop-filter:blur(4px);box-shadow:inset 0 0 0 2px oklch(100% 0 0 / .12)}
+.stick.l{left:max(14px,env(safe-area-inset-left))}.stick.r{right:max(14px,env(safe-area-inset-right))}
+.stick b{grid-area:2/2;align-self:center;justify-self:center;font-size:var(--xs);font-weight:700;color:var(--muted);text-align:center;line-height:1.15;pointer-events:none}
+.stick .move{min-height:0;border-radius:16px;background:oklch(30% .016 255 / .8);padding:2px}
+.stick .move svg{width:26px;height:26px}
+.stick .move small{font-size:.6875rem;color:var(--ink)}
+.stick .u{grid-area:1/2}.stick .d{grid-area:3/2}.stick .lf{grid-area:2/1}.stick .rt{grid-area:2/3}
+@media(orientation:portrait) and (max-width:600px){body.drive .stopbar button{width:80px;height:80px}.stick{width:min(40vw,200px);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 96px)}body.drive .stopbar{bottom:max(14px,env(safe-area-inset-bottom))}}
+@media(max-height:420px){.stick{width:min(30vw,170px)}.stick .move small{display:none}body.drive .stopbar button{width:72px;height:72px}}
+.speed{display:flex;align-items:center;gap:6px;justify-content:center;margin:0 0 8px}
+.speed>span{font-size:var(--xs);font-weight:700;color:var(--muted);margin-right:2px}
+.speed button{min-height:40px;min-width:62px;border:0;border-radius:999px;background:var(--panel);font-weight:700;font-size:var(--xs);padding:0 12px}
+.speed button[aria-pressed="true"]{background:var(--c2);color:oklch(18% .02 85)}
+body.drive .speed{position:fixed;top:calc(max(12px,env(safe-area-inset-top)) + 54px);left:50%;transform:translateX(-50%);z-index:4;margin:0;background:oklch(15% .01 255 / .6);backdrop-filter:blur(6px);padding:4px;border-radius:999px}
+body.drive .speed>span{display:none}
+body.drive .speed button{background:transparent;min-height:36px;min-width:56px}
+body.drive .speed button[aria-pressed="true"]{background:var(--c2)}
+body.drive .cabtip{top:calc(max(12px,env(safe-area-inset-top)) + 104px)}
+@media(orientation:portrait) and (max-width:600px){
+ body.drive #real{top:calc(max(12px,env(safe-area-inset-top)) + 92px)}
+ body.drive .speed{top:calc(max(12px,env(safe-area-inset-top)) + 144px)}
+ body.drive .cabtip{top:calc(max(12px,env(safe-area-inset-top)) + 194px);white-space:normal;text-align:center;width:max-content;max-width:88vw;border-radius:14px}
+ .stick .move small .jn{display:none}
+ .stick{width:min(45vw,190px);gap:4px;padding:6px}
+}
+@media(max-width:380px){.speed button{min-width:52px;padding:0 8px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -115,6 +161,7 @@ details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;f
 <main class="app">
  <header class="bar">
   <h1>Robo Arm</h1>
+  <button class="icon" id="driveBtn" aria-label="Drive view (camera full screen)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5h4M16 5h4v4M20 15v4h-4M8 19H4v-4"/><circle cx="12" cy="12" r="2.5"/></svg></button>
   <button class="icon" id="helpBtn" aria-label="How to play">?</button>
   <button class="icon" id="setupBtn" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
  </header>
@@ -149,12 +196,20 @@ details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;f
  </section>
 
  <button class="realbtn" id="real" hidden>Real arm: OFF</button>
+ <div class="speed" id="speed" role="group" aria-label="Speed"><span>Speed</span><button data-lv="1">Slow</button><button data-lv="2">Gentle</button><button data-lv="3">Normal</button><button data-lv="4">Fast</button></div>
  <p class="tip" id="tip" role="status" aria-live="polite"><strong>Hold</strong> a button to move. Let go to stop.</p>
 
  <section class="pad" id="pad" aria-label="Controls"></section>
- <p class="keys" id="keys">Keyboard: <kbd>←</kbd><kbd>→</kbd> turn · <kbd>↑</kbd><kbd>↓</kbd> lift · <kbd>W</kbd><kbd>S</kbd> bend · <kbd>E</kbd><kbd>D</kbd> wrist · <kbd>Space</kbd> STOP. Hold a key to move, let go to stop.</p>
+ <p class="keys" id="keys">Keys <kbd>1</kbd>–<kbd>4</kbd> speed · <kbd>←</kbd><kbd>→</kbd> turn · <kbd>↑</kbd><kbd>↓</kbd> lift · <kbd>W</kbd><kbd>S</kbd> bend · <kbd>E</kbd><kbd>D</kbd> wrist · <kbd>Space</kbd> STOP. Hold a key to move, let go to stop.</p>
 </main>
 
+<div class="cab" id="cab" aria-label="Drive view">
+ <div class="cabtop"><button class="icon" id="cabHelp" aria-label="How to play">?</button><button class="icon" id="cabExit" aria-label="Leave drive view">✕</button></div>
+ <p class="cabtip" id="cabTip"></p>
+ <svg class="sight" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="#fff" stroke-width="1.5"><circle cx="50" cy="50" r="30" stroke-dasharray="4 6"/><path d="M50 8v18M50 74v18M8 50h18M74 50h18"/><circle cx="50" cy="50" r="2" fill="#fff"/></svg>
+ <div class="stick l" id="stickL"><b>Turn<br>&amp; Lift</b></div>
+ <div class="stick r" id="stickR"><b>Bend<br>&amp; Wrist</b></div>
+</div>
 <div class="stopbar"><button id="stop">STOP</button></div>
 
 <dialog id="helpDlg" aria-labelledby="helpTitle"><div class="sheet">
@@ -166,6 +221,7 @@ details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;f
   <li>Red <strong>STOP</strong> stops everything.</li>
  </ol>
  <p id="helpMode">Right now this is practice: the buttons move the picture only. The real arm stays locked until its setup is finished. For real servo power, the bench supply OUTPUT switch is the true off switch.</p>
+ <p>On a computer: arrow keys turn and lift, W/S bend, E/D wrist, 1–4 speed (slow to fast), Space stops. The corner-arrows button opens the full-screen drive view.</p>
  <p>From anywhere: open your private arm link (it ends in <strong>#arm=…</strong>). This phone remembers it.</p>
  <p>Near the arm: join phone Wi-Fi <strong>RobotArm-Test</strong> (password <strong>ArmTest-7284</strong>), then open <strong>http://192.168.4.1</strong>.</p>
 </div></dialog>
@@ -260,7 +316,7 @@ function release(){if(!held)return;const h=held;held.btn.classList.remove('held'
 function step(now){
  if(!held)return;
  const dt=Math.min(.05,(now-last)/1000);last=now;
- const j=J[held.i],nv=Math.max(j.min,Math.min(j.max,j.v+held.dir*j.speed*dt));
+ const j=J[held.i],nv=Math.max(j.min,Math.min(j.max,j.v+held.dir*j.speed*SPEED_X[speed]*dt));
  if(nv===j.v&&(nv===j.min||nv===j.max))tip(`${j.name} is at its end. Try the other button.`);
  j.v=nv;draw();game();
  requestAnimationFrame(step);
@@ -295,7 +351,7 @@ $('real').onclick=async()=>{
   if(!state.ready||state.fault){tip('<strong>The arm failed its signal check.</strong> Check it at the laptop.');return;}
  }
  if(!confirm(REMOTE?'Real arm ON from far away?\n\nYou must be able to SEE the arm (camera or video call). Nobody near it. If the picture freezes, tap STOP.':'Real arm ON?\n\nArm clear, hands away, your other hand on the supply OUTPUT button.'))return;
- try{const next=await raw('/api/play',{revision:state.revision,confirm:'SUPPORTED_CLEAR_CUTOFF_READY'});owner=next.owner;apply(next);real=true;render();tip('<strong>Real arm ON.</strong> Hold a button to move. Let go to stop.');}
+ try{const next=await raw('/api/play',{revision:state.revision,confirm:'SUPPORTED_CLEAR_CUTOFF_READY'});owner=next.owner;apply(next);real=true;render();await sendSpeed();tip('<strong>Real arm ON.</strong> Hold a button to move. Let go to stop.');}
  catch(e){lose(e);}
 };
 setInterval(async()=>{
@@ -432,6 +488,7 @@ async function rraw(path,params){
  if(path==='/api/play'){const n=s.nonce;R.sid=n;await rSend('p',0,0,n);const t=validate(await rWait(x=>x.session===n&&x.driving,5000));return {...t,owner:n};}
  if(path==='/api/press'){await rSend('m',params.slot,params.direction);return validate(s);}
  if(path==='/api/beat'){await rSend('b');return validate(s);}
+ if(path==='/api/speed'){await rSend('s',params.level);return validate(s);}
  throw Error('Over the internet you can play and stop. Change settings at the laptop.');
 }
 function sendStop(){if(ON_DEVICE)fetch('/api/stop',{method:'POST',keepalive:true}).catch(()=>{});else if(REMOTE)rSend('x',0,0,R.sid||'0'.repeat(16)).catch(()=>{});}
@@ -500,7 +557,7 @@ document.addEventListener('keydown',e=>{
  if(typing())return;
  if(e.code==='Space'||e.code==='Escape'){e.preventDefault();if(!e.repeat){keyHeld='';$('stop').click();}return;}
  const id=KEYS[e.code];if(!id)return;e.preventDefault();if(e.repeat||keyHeld===e.code)return;
- const b=pad.querySelector(`[data-testid="${id}"]`);if(!b||b.disabled)return;keyHeld=e.code;hold(J.findIndex(j=>id.startsWith(j.key+'-')),Number(b.dataset.dir),b);
+ const src=pad.querySelector(`[data-testid="${id}"]`),b=(document.body.classList.contains('drive')&&document.querySelector(`[data-testid="cab-${id}"]`))||src;if(!src||src.disabled)return;keyHeld=e.code;hold(J.findIndex(j=>id.startsWith(j.key+'-')),Number(src.dataset.dir),b);
 });
 document.addEventListener('keyup',e=>{if(e.code===keyHeld){keyHeld='';release();}});
 window.addEventListener('blur',()=>{keyHeld='';});
@@ -510,9 +567,38 @@ if(REMOTE){
  const s=document.createElement('script');s.src='camlink.js';
  s.onload=()=>{const v=$('camv'),st=$('stage'),pill=$('camPill'),txt=$('camText');pill.hidden=false;
   const words={asking:'Camera: calling laptop…',connecting:'Camera: connecting…',waiting:'Camera: waiting for laptop',lost:'Camera: lost, retrying…',live:'Camera: live'};
-  window.CamLink.view(LINK_ID,LINK_KEY,v,k=>{const on=k==='live';v.hidden=!on;st.classList.toggle('cam',on);pill.classList.toggle('ok',on);pill.classList.toggle('bad',k==='lost');txt.textContent=words[k]||k;});};
+  window.CamLink.view(LINK_ID,LINK_KEY,v,k=>{const on=k==='live';v.hidden=!on;if(on&&window.__armDrive)window.__armDrive(true);st.classList.toggle('cam',on);pill.classList.toggle('ok',on);pill.classList.toggle('bad',k==='lost');txt.textContent=words[k]||k;});};
  document.head.append(s);
 }
+// ---------- speed (1 slow, 2 gentle, 3 normal, 4 fast) ----------
+const SPEED_X=[0,.25,.5,1,1.75],SPEED_NAME=['','Slow','Gentle','Normal','Fast'];
+let speed=3;try{const v=Number(localStorage.getItem('armSpeed'));if(v>=1&&v<=4)speed=v;}catch{}
+function showSpeed(){for(const b of $('speed').querySelectorAll('button'))b.setAttribute('aria-pressed',String(Number(b.dataset.lv)===speed));}
+async function sendSpeed(){if(!real||!LIVE)return;try{apply(await raw('/api/speed',{revision:state.revision,owner,level:speed}));}catch(e){realOff();lose(e);}}
+function setSpeed(lv){lv=Math.max(1,Math.min(4,lv));if(lv===speed)return;speed=lv;try{localStorage.setItem('armSpeed',String(lv));}catch{}showSpeed();tip(`<strong>Speed: ${SPEED_NAME[lv]}.</strong>`);sendSpeed();}
+for(const b of $('speed').querySelectorAll('button'))b.onclick=()=>setSpeed(Number(b.dataset.lv));
+document.addEventListener('keydown',e=>{if(typing()||e.repeat)return;const n={Digit1:1,Digit2:2,Digit3:3,Digit4:4,Numpad1:1,Numpad2:2,Numpad3:3,Numpad4:4}[e.code];if(n)setSpeed(n);else if(e.key==='+'||e.key==='=')setSpeed(speed+1);else if(e.key==='-'||e.key==='_')setSpeed(speed-1);});
+showSpeed();
+// ---------- drive view ----------
+const CAB=[['stickL','u','lift-up'],['stickL','d','lift-down'],['stickL','lf','turn-left'],['stickL','rt','turn-right'],['stickR','u','bend-up'],['stickR','d','bend-down'],['stickR','lf','wrist-down'],['stickR','rt','wrist-up']];
+for(const [stick,pos,id] of CAB){
+ const src=pad.querySelector(`[data-testid="${id}"]`),i=J.findIndex(j=>id.startsWith(j.key+'-')),dir=Number(src.dataset.dir);
+ const b=document.createElement('button');b.className='move '+pos;b.style.setProperty('--c',`var(${J[i].c})`);b.dataset.testid='cab-'+id;
+ b.setAttribute('aria-label',src.getAttribute('aria-label'));
+ b.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${ARROW[{u:'up',d:'down',lf:'left',rt:'right'}[pos]]}</svg><small><span class="jn">${J[i].name} </span>${src.querySelector('small').textContent.toLowerCase()}</small>`;
+ const go=e=>{e.preventDefault();if(src.disabled)return;try{e.pointerId!=null&&b.setPointerCapture(e.pointerId)}catch{};hold(i,dir,b);};
+ const end=()=>{if(held&&held.btn===b)release();};
+ b.addEventListener('pointerdown',go);for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,end);
+ b.addEventListener('contextmenu',e=>e.preventDefault());
+ $(stick).append(b);
+}
+const syncCab=()=>{for(const b of document.querySelectorAll('.stick .move')){const src=pad.querySelector(`[data-testid="${b.dataset.testid.slice(4)}"]`);b.disabled=src.disabled;}};
+new MutationObserver(()=>{$('cabTip').innerHTML=$('tip').innerHTML;}).observe($('tip'),{childList:true,subtree:true,characterData:true});
+function setDrive(on){release();document.body.classList.toggle('drive',on);syncCab();$('cabTip').innerHTML=$('tip').innerHTML;try{localStorage.setItem('driveView',on?'1':'0');}catch{}}
+$('driveBtn').onclick=()=>setDrive(true);$('cabExit').onclick=()=>setDrive(false);$('cabHelp').onclick=()=>{release();$('helpDlg').showModal();};
+setInterval(syncCab,1000);
+let autoDrive=true;try{autoDrive=localStorage.getItem('driveView')!=='0';}catch{}
+window.__armDrive=on=>{if(on&&autoDrive&&!document.body.classList.contains('drive'))setDrive(true);};
 for(const el of document.querySelectorAll('button[id],input[id],select[id]'))el.dataset.testid=el.id;
 window.__arm={J,START,draw,game,get stars(){return stars},ball:()=>ball,tip:()=>tipPt};
 fillForm();render();draw();if(LIVE)reconnect();
