@@ -201,7 +201,7 @@ body.drive .cabtip{top:calc(max(12px,env(safe-area-inset-top)) + 104px)}
  <p class="tip" id="tip" role="status" aria-live="polite"><strong>Hold</strong> a button to move. Let go to stop.</p>
 
  <section class="pad" id="pad" aria-label="Controls"></section>
- <p class="keys" id="keys">Keys <kbd>1</kbd>–<kbd>4</kbd> speed · <kbd>←</kbd><kbd>→</kbd> turn · <kbd>↑</kbd><kbd>↓</kbd> lift · <kbd>W</kbd><kbd>S</kbd> bend · <kbd>E</kbd><kbd>D</kbd> wrist · <kbd>Space</kbd> STOP. Hold a key to move, let go to stop.</p>
+ <p class="keys" id="keys">Keys <kbd>1</kbd>–<kbd>4</kbd> speed · <kbd>←</kbd><kbd>→</kbd> turn · <kbd>↑</kbd><kbd>↓</kbd> lift · <kbd>W</kbd><kbd>S</kbd> bend · <kbd>A</kbd><kbd>D</kbd> wrist · <kbd>Space</kbd> STOP. Hold a key to move, let go to stop.</p>
 </main>
 
 <div class="cab" id="cab" aria-label="Drive view">
@@ -222,7 +222,7 @@ body.drive .cabtip{top:calc(max(12px,env(safe-area-inset-top)) + 104px)}
   <li>Red <strong>STOP</strong> stops everything.</li>
  </ol>
  <p id="helpMode">Right now this is practice: the buttons move the picture only. The real arm stays locked until its setup is finished. For real servo power, the bench supply OUTPUT switch is the true off switch.</p>
- <p>On a computer: arrow keys turn and lift, W/S bend, E/D wrist, 1–4 speed (slow to fast), Space stops. The corner-arrows button opens the full-screen drive view.</p>
+ <p>On a computer: arrow keys turn and lift, W A S D bend and wrist (hold two keys to move two parts together), 1–4 speed (slow to fast), Space stops. The corner-arrows button opens the full-screen drive view.</p>
  <p>From anywhere: open your private arm link (it ends in <strong>#arm=…</strong>). This phone remembers it.</p>
  <p>Near the arm: join phone Wi-Fi <strong>RobotArm-Test</strong> (password <strong>ArmTest-7284</strong>), then open <strong>http://192.168.4.1</strong>.</p>
 </div></dialog>
@@ -288,7 +288,7 @@ const J=[
 const START=J.map(j=>j.v);
 const fresh=()=>({firmware:'arm-ready-v3',firmwareLocked:true,ready:false,fault:true,offVerified:false,storageReady:false,armed:false,active:false,activeSlot:-1,commanded:null,token:'0'.repeat(32),revision:1,joints:Array.from({length:6},(_,i)=>({name:'Unassigned',channel:i,mapped:0,low:0,start:0,high:0,reverse:0,verified:0}))});
 let state=fresh(),connected=!LIVE,selected=0,busy=false,owner='',epoch=0,polling=false,heartbeatPending=false;
-let real=false,pressTimer=0,pressBusy=false,pendingStop=null,held=null,last=0,stars=0,ball={x:250,ang:35,caught:false},wasOpen=false,tipPt={x:0,y:0};
+let real=false,pressTimer=0,pressBusy=false,pendingStops=new Set(),holds=new Map(),held=null,last=0,stars=0,ball={x:250,ang:35,caught:false},wasOpen=false,tipPt={x:0,y:0};
 const fields=['slot','jointName','channel','low','start','high','mapped','reverse'];
 
 // ---------- controls ----------
@@ -301,7 +301,7 @@ J.forEach((j,i)=>{
   b.setAttribute('aria-label',`${j.name} ${label}. Hold to move.`);
   b.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${ARROW[icon]}</svg><small>${label}</small>`;
   const go=e=>{e.preventDefault();if(b.disabled)return;try{e.pointerId!=null&&b.setPointerCapture(e.pointerId)}catch{};hold(i,dir,b);};
-  const end=()=>{if(held&&held.btn===b)release();};
+  const end=()=>releaseBtn(b);
   b.addEventListener('pointerdown',go);
   for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,end);
   b.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();hold(i,dir,b);}});
@@ -312,14 +312,18 @@ J.forEach((j,i)=>{
  }
  pad.append(card);
 });
-function hold(i,dir,btn){release();held={i,dir,btn};btn.classList.add('held');last=performance.now();tip(`${J[i].name}: ${btn.querySelector('small').textContent.toLowerCase()}…`);if(real)realHold(i,dir);requestAnimationFrame(step);}
-function release(){if(!held)return;const h=held;held.btn.classList.remove('held');held=null;if(real)realRelease(h.i);}
+function hold(i,dir,btn){const was=holds.get(i);if(was){if(was.btn===btn&&was.dir===dir)return;was.btn.classList.remove('held');holds.delete(i);}
+ const h={i,dir,btn};holds.set(i,h);held=h;btn.classList.add('held');tip(`${J[i].name}: ${btn.querySelector('small').textContent.toLowerCase()}…`);
+ if(real)realHold(i,dir);if(holds.size===1){last=performance.now();requestAnimationFrame(step);}}
+function releaseJoint(i){const h=holds.get(i);if(!h)return;h.btn.classList.remove('held');holds.delete(i);held=holds.size?[...holds.values()].pop():null;if(real)realRelease(i);}
+function releaseBtn(b){for(const h of [...holds.values()])if(h.btn===b)releaseJoint(h.i);}
+function release(){for(const i of [...holds.keys()])releaseJoint(i);keysDown.clear();}
 function step(now){
- if(!held)return;
+ if(!holds.size)return;
  const dt=Math.min(.05,(now-last)/1000);last=now;
- const j=J[held.i],nv=Math.max(j.min,Math.min(j.max,j.v+held.dir*j.speed*SPEED_X[speed]*dt));
- if(nv===j.v&&(nv===j.min||nv===j.max))tip(`${j.name} is at its end. Try the other button.`);
- j.v=nv;draw();game();
+ for(const h of holds.values()){const j=J[h.i],nv=Math.max(j.min,Math.min(j.max,j.v+h.dir*j.speed*SPEED_X[speed]*dt));
+  if(nv===j.v&&(nv===j.min||nv===j.max))tip(`${j.name} is at its end. Try the other button.`);j.v=nv;}
+ draw();game();
  requestAnimationFrame(step);
 }
 window.addEventListener('blur',release);
@@ -328,22 +332,31 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)release();}
 // ---------- real arm (setup build only) ----------
 async function press(i,d){
  if(!real)return;
- if(pressBusy){if(d===0)pendingStop=i;return;}
+ if(pressBusy){if(d===0)pendingStops.add(i);return;}
  pressBusy=true;
  try{apply(await raw('/api/press',{revision:state.revision,owner,slot:i,direction:d}));}
  catch(e){realOff();lose(e);}
- finally{pressBusy=false;if(pendingStop!==null&&real){const k=pendingStop;pendingStop=null;press(k,0);}}
+ finally{pressBusy=false;if(pendingStops.size&&real){const k=pendingStops.values().next().value;pendingStops.delete(k);press(k,0);}}
+}
+// One timer sends every held joint in turn, so two joints move together.
+let pressTurn=0;
+async function pressAll(){
+ if(!real||pressBusy||!holds.size)return;
+ const list=[...holds.values()].filter(h=>state.joints[h.i]&&state.joints[h.i].verified);if(!list.length)return;
+ pressBusy=true;
+ try{for(const h of list){if(!real||!holds.has(h.i))continue;apply(await raw('/api/press',{revision:state.revision,owner,slot:h.i,direction:h.dir}));}}
+ catch(e){realOff();lose(e);}
+ finally{pressBusy=false;if(pendingStops.size&&real){const k=pendingStops.values().next().value;pendingStops.delete(k);press(k,0);}}
 }
 function realHold(i,dir){
- clearInterval(pressTimer);
  if(!state.joints[i].verified){tip(`<strong>${J[i].name} is not set up yet.</strong> Only the picture moves.`);return;}
  const first=!state.held||!state.held[i];
  press(i,dir);
  if(first)tip(`<strong>${J[i].name}</strong> went to its start. Hold again to move it.`);
- pressTimer=setInterval(()=>{if(held&&held.i===i&&real)press(i,dir);},150);
+ if(!pressTimer)pressTimer=setInterval(pressAll,150);
 }
-function realRelease(i){clearInterval(pressTimer);if(state.joints[i].verified)press(i,0);}
-function realOff(){real=false;owner='';clearInterval(pressTimer);render();}
+function realRelease(i){if(!holds.size){clearInterval(pressTimer);pressTimer=0;}if(state.joints[i].verified){if(pressBusy)pendingStops.add(i);else press(i,0);}}
+function realOff(){real=false;owner='';clearInterval(pressTimer);pressTimer=0;render();}
 $('real').onclick=async()=>{
  if(real){release();realOff();try{apply(await raw('/api/stop',{}));}catch(e){lose(e);}tip('<strong>Real arm OFF.</strong> Signals off. Supply OUTPUT OFF cuts servo power.');return;}
  if(!state.ready||state.fault){
@@ -356,7 +369,7 @@ $('real').onclick=async()=>{
  catch(e){lose(e);}
 };
 setInterval(async()=>{
- if(!real||held||pressBusy||document.hidden)return;
+ if(!real||holds.size||pressBusy||document.hidden)return;
  pressBusy=true;try{apply(await raw('/api/beat',{revision:state.revision,owner}));}catch(e){realOff();lose(e);}finally{pressBusy=false;}
 },500);
 
@@ -392,12 +405,12 @@ function game(){
  const hand=J[5].v,turn=J[0].v,near=Math.hypot(tipPt.x-ball.x,tipPt.y-196)<16,facing=Math.abs(turn-ball.ang)<12;
  if(ball.caught){if(hand>60){ball.caught=false;tip('Dropped it. New ball coming…');setTimeout(newBall,700);}return;}
  if(hand>=60)wasOpen=true;
- if(held&&held.i===0&&facing)tip('<strong>Lined up.</strong> Now reach down to the ball.');
+ if(holds.has(0)&&facing)tip('<strong>Lined up.</strong> Now reach down to the ball.');
  if(near&&facing&&wasOpen&&hand<30){
   ball.caught=true;wasOpen=false;stars++;$('score').textContent=`★ ${stars}`;
   const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',tipPt.x);c.setAttribute('cy',tipPt.y);c.setAttribute('r',14);c.setAttribute('fill','none');c.setAttribute('stroke','var(--c2)');c.setAttribute('stroke-width',4);c.classList.add('pop');$('fx').append(c);setTimeout(()=>c.remove(),800);
   tip('<strong>Got it!</strong> ★ Open the hand to drop it.');
- }else if(near&&facing&&!wasOpen&&hand<30&&held&&held.i===5){tip('Open the hand first, then close it on the ball.');}
+ }else if(near&&facing&&!wasOpen&&hand<30&&holds.has(5)){tip('Open the hand first, then close it on the ball.');}
 }
 function newBall(){ball={x:170+Math.round(Math.random()*90),ang:Math.round(Math.random()*120-60),caught:false};draw();tip('Find the orange dot on the circle and turn toward it.');}
 function tip(html){$('tip').innerHTML=html;}
@@ -439,7 +452,7 @@ function render(){
 }
 function fillForm(){const j=state.joints[selected];$('slot').value=selected;$('jointName').value=j.name;$('channel').value=j.channel;for(const k of ['low','start','high'])$(k).value=j[k]||'';$('mapped').checked=!!j.mapped;$('reverse').checked=!!j.reverse;}
 function select(i){if(state.active||state.armed){message('Stop the test before changing joints.',true);fillForm();return;}selected=i;fillForm();render();}
-function apply(s){const wasSession=state.armed||state.active,previousToken=state.token;state=validate(s);connected=true;if(real&&!state.driving){real=false;owner='';clearInterval(pressTimer);tip('<strong>Real arm stopped.</strong> Tap Real arm to start again.');}if((wasSession&&!state.armed&&!state.active)||previousToken!==state.token||state.firmwareLocked){owner='';$('physicalReady').checked=false;$('startReady').checked=false;}render();}
+function apply(s){const wasSession=state.armed||state.active,previousToken=state.token;state=validate(s);connected=true;if(real&&!state.driving){real=false;owner='';clearInterval(pressTimer);pressTimer=0;tip('<strong>Real arm stopped.</strong> Tap Real arm to start again.');}if((wasSession&&!state.armed&&!state.active)||previousToken!==state.token||state.firmwareLocked){owner='';$('physicalReady').checked=false;$('startReady').checked=false;}render();}
 // ---------- internet link: signed commands through a public relay ----------
 const R={ws:null,up:false,last:null,lastAt:0,seq:0,sid:'',key:null,chain:Promise.resolve(),buf:new Uint8Array(0),waiters:[],ping:0};
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -499,7 +512,7 @@ async function raw(path,params=null){
  try{const response=await fetch(path,{method:params?'POST':'GET',cache:'no-store',headers:params?{'X-Arm-Token':state.token,'Content-Type':'application/x-www-form-urlencoded'}:{},body:params?new URLSearchParams(params):undefined,signal:controller.signal});const s=await response.json();if(!response.ok)throw Error(s.error||'The arm said no to that request.');return validate(s);}
  finally{clearTimeout(timer);}
 }
-function lose(error){++epoch;busy=false;connected=false;owner='';real=false;clearInterval(pressTimer);$('physicalReady').checked=$('startReady').checked=false;render();message(`${error.message||'Connection lost.'} If anything is moving, switch the bench supply OFF.`,true);tip('<strong>Not connected.</strong> If anything is moving, switch the power supply OFF.');sendStop();}
+function lose(error){++epoch;busy=false;connected=false;owner='';real=false;clearInterval(pressTimer);pressTimer=0;$('physicalReady').checked=$('startReady').checked=false;render();message(`${error.message||'Connection lost.'} If anything is moving, switch the bench supply OFF.`,true);tip('<strong>Not connected.</strong> If anything is moving, switch the power supply OFF.');sendStop();}
 async function act(action,params={}){
  if(busy)return;busy=true;render();const current=++epoch;
  try{const next=await raw('/api/'+action,{revision:state.revision,...params});if(current!==epoch)return;if(next.owner)owner=next.owner;apply(next);message(action==='save'?'Saved on the arm.':action==='check'?'Signals are off. (This does not switch power off.)':action==='arm'?'Ready. Nothing moved. Check the start position next.':action==='engage'?'Sent to start position.':'Done.');}
@@ -528,7 +541,7 @@ $('arm').onclick=()=>act('arm',{slot:selected,confirm:'SUPPORTED_CLEAR_CUTOFF_RE
 $('engage').onclick=()=>act('engage',{owner,confirm:'INSPECTED_START_ALIGNMENT'});
 $('jogMinus').onclick=()=>act('jog',{owner,direction:-1});$('jogPlus').onclick=()=>act('jog',{owner,direction:1});
 $('stop').onclick=async()=>{
- release();real=false;clearInterval(pressTimer);++epoch;busy=false;owner='';$('physicalReady').checked=$('startReady').checked=false;
+ release();real=false;clearInterval(pressTimer);pressTimer=0;++epoch;busy=false;owner='';$('physicalReady').checked=$('startReady').checked=false;
  if(!LIVE){state.armed=state.active=false;state.commanded=null;state.activeSlot=-1;render();tip('<strong>Stopped.</strong> Practice paused. Hold a button to play again.');message('Stopped (practice).');return;}
  render();tip('<strong>Stopping…</strong> Switch the bench supply OFF if anything still moves.');
  try{apply(await raw('/api/stop',{}));tip('<strong>Stopped.</strong> Signals off. To cut servo power, switch the supply OFF.');message('Stop confirmed by the arm.');}catch(e){lose(e);}
@@ -538,7 +551,7 @@ $('helpBtn').onclick=()=>{release();$('helpDlg').showModal();};
 $('setupBtn').onclick=()=>{release();fillForm();render();$('setupDlg').showModal();};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close();}));
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&LIVE){++epoch;busy=false;owner='';real=false;clearInterval(pressTimer);$('physicalReady').checked=$('startReady').checked=false;sendStop();render();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&LIVE){++epoch;busy=false;owner='';real=false;clearInterval(pressTimer);pressTimer=0;$('physicalReady').checked=$('startReady').checked=false;sendStop();render();}});
 window.addEventListener('pagehide',()=>{if(LIVE)sendStop();});
 setInterval(async()=>{
  if(!LIVE||!connected||busy||polling||document.hidden)return;
@@ -551,18 +564,17 @@ setInterval(async()=>{
  try{const next=await raw('/api/heartbeat',{revision:state.revision,owner:requestOwner});if(current===epoch&&requestOwner===owner)apply(next);}catch(e){if(current===epoch&&requestOwner===owner)lose(e);}finally{heartbeatPending=false;}
 },350);
 // ---------- keyboard (PC) ----------
-const KEYS={ArrowLeft:'turn-left',ArrowRight:'turn-right',ArrowUp:'lift-up',ArrowDown:'lift-down',KeyW:'bend-up',KeyS:'bend-down',KeyE:'wrist-up',KeyD:'wrist-down'};
+const KEYS={ArrowLeft:'turn-left',ArrowRight:'turn-right',ArrowUp:'lift-up',ArrowDown:'lift-down',KeyW:'bend-up',KeyS:'bend-down',KeyA:'wrist-down',KeyD:'wrist-up'};
 const typing=()=>document.querySelector('dialog[open]')||/^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement||{}).tagName||'');
-let keyHeld='';
+const keysDown=new Map(); // key code -> button it holds
 document.addEventListener('keydown',e=>{
  if(typing())return;
- if(e.code==='Space'||e.code==='Escape'){e.preventDefault();if(!e.repeat){keyHeld='';$('stop').click();}return;}
- const id=KEYS[e.code];if(!id)return;e.preventDefault();if(e.repeat||keyHeld===e.code)return;
- const src=pad.querySelector(`[data-testid="${id}"]`),b=(document.body.classList.contains('drive')&&document.querySelector(`[data-testid="cab-${id}"]`))||src;if(!src||src.disabled)return;keyHeld=e.code;hold(J.findIndex(j=>id.startsWith(j.key+'-')),Number(src.dataset.dir),b);
+ if(e.code==='Space'||e.code==='Escape'){e.preventDefault();if(!e.repeat){release();$('stop').click();}return;}
+ const id=KEYS[e.code];if(!id)return;e.preventDefault();if(e.repeat||keysDown.has(e.code))return;
+ const src=pad.querySelector(`[data-testid="${id}"]`),b=(document.body.classList.contains('drive')&&document.querySelector(`[data-testid="cab-${id}"]`))||src;if(!src||src.disabled)return;
+ keysDown.set(e.code,b);hold(J.findIndex(j=>id.startsWith(j.key+'-')),Number(src.dataset.dir),b);
 });
-document.addEventListener('keyup',e=>{if(e.code===keyHeld){keyHeld='';release();}});
-window.addEventListener('blur',()=>{keyHeld='';});
-
+document.addEventListener('keyup',e=>{const b=keysDown.get(e.code);if(!b)return;keysDown.delete(e.code);releaseBtn(b);});
 // ---------- live camera from the home laptop (internet link only) ----------
 if(REMOTE){
  const s=document.createElement('script');s.src='camlink.js';
@@ -588,7 +600,7 @@ for(const [stick,pos,id] of CAB){
  b.setAttribute('aria-label',src.getAttribute('aria-label'));
  b.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${ARROW[{u:'up',d:'down',lf:'left',rt:'right'}[pos]]}</svg><small><span class="jn">${J[i].name} </span>${src.querySelector('small').textContent.toLowerCase()}</small>`;
  const go=e=>{e.preventDefault();if(src.disabled)return;try{e.pointerId!=null&&b.setPointerCapture(e.pointerId)}catch{};hold(i,dir,b);};
- const end=()=>{if(held&&held.btn===b)release();};
+ const end=()=>releaseBtn(b);
  b.addEventListener('pointerdown',go);for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,end);
  b.addEventListener('contextmenu',e=>e.preventDefault());
  $(stick).append(b);
