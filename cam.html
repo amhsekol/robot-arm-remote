@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Robo Arm camera</title>
+<style>
+:root{--bg:oklch(20% .012 255);--panel:oklch(25% .014 255);--ink:oklch(96% .005 255);--muted:oklch(76% .012 255);--ok:oklch(76% .15 150);--warn:oklch(82% .14 85);--bad:oklch(58% .2 25)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:500 1rem/1.4 system-ui,sans-serif}
+main{max-width:900px;margin:auto;padding:18px;display:grid;gap:14px}
+h1{margin:0;font-size:1.6rem;letter-spacing:-.02em}
+video{width:100%;aspect-ratio:4/3;object-fit:contain;background:#000;border-radius:16px}
+.status{display:flex;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem;padding:10px 14px;border-radius:999px;background:var(--panel)}
+.pill i{width:10px;height:10px;border-radius:50%;background:var(--warn)}
+.pill.ok i{background:var(--ok)}.pill.bad i{background:var(--bad)}
+button{font:inherit;font-weight:700;min-height:56px;border:0;border-radius:14px;background:var(--ok);color:oklch(18% .02 150);padding:0 22px}
+p{margin:0;color:var(--muted)}
+.big{font-size:1.15rem;color:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+ <h1>Robo Arm camera (home laptop)</h1>
+ <p class="big" id="say">Starting the camera…</p>
+ <button id="start" hidden>Start camera</button>
+ <div class="status">
+  <span class="pill" id="camP"><i></i><span id="camT">Camera: off</span></span>
+  <span class="pill" id="netP"><i></i><span id="netT">Internet: connecting</span></span>
+  <span class="pill" id="viewP"><i></i><span id="viewT">Watching: 0</span></span>
+ </div>
+ <video id="me" playsinline muted autoplay></video>
+ <p>Leave this page open. Keep the laptop on its charger with the lid open. Point the webcam at the arm. Only people with your private arm link can watch.</p>
+</main>
+<script src="camlink.js"></script>
+<script>
+(() => {
+'use strict';
+const $=id=>document.getElementById(id),RE=/^[a-f0-9]{12}\.[a-f0-9]{64}$/;
+let link=(location.hash.match(/arm=([a-f0-9.]+)/)||[])[1]||'';
+if(RE.test(link)){try{localStorage.setItem('armLink',link);}catch{}history.replaceState(null,'',location.pathname);}
+else{try{link=localStorage.getItem('armLink')||'';}catch{link='';}}
+const set=(p,t,cls,txt)=>{$(p).className='pill '+(cls||'');$(t).textContent=txt;};
+if(!RE.test(link)){$('say').textContent='Open this page with your private arm link (it ends in #arm=…).';return;}
+const [id,key]=link.split('.');
+let lock=null;
+async function keepAwake(){try{if('wakeLock' in navigator&&!document.hidden)lock=await navigator.wakeLock.request('screen');}catch{}}
+document.addEventListener('visibilitychange',keepAwake);
+async function start(){
+ $('start').hidden=true;$('say').textContent='Starting the camera…';
+ let stream;
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:960},height:{ideal:720},frameRate:{ideal:24,max:30}},audio:false});}
+ catch(e){$('say').textContent='The camera did not start. Click "Start camera", then click Allow.';$('start').hidden=false;set('camP','camT','bad','Camera: blocked');return;}
+ $('me').srcObject=stream;set('camP','camT','ok','Camera: on');
+ $('say').textContent='Camera is on. You can leave this laptop now.';
+ keepAwake();
+ await CamLink.send(id,key,stream,s=>{set('netP','netT',s.relay?'ok':'bad',s.relay?'Internet: connected':'Internet: reconnecting…');set('viewP','viewT',s.viewers?'ok':'',`Watching: ${s.viewers}`);});
+ for(const t of stream.getTracks())t.onended=()=>{set('camP','camT','bad','Camera: stopped');$('say').textContent='The camera stopped. Reload this page.';};
+}
+$('start').onclick=start;
+start();
+})();
+</script>
+</body>
+</html>
