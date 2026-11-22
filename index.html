@@ -1023,7 +1023,7 @@ function stopMove(){const tok=show;if(!tok)return;tok.alive=false;tok.stopped=tr
  if(tok.real&&real&&LIVE)for(let i=0;i<6;i++)if(state.joints[i].verified&&state.held&&state.held[i])raw('/api/press',{revision:state.revision,owner,slot:i,direction:0}).catch(()=>{});}
 (()=>{let ver='';const chk=()=>fetch('build.txt',{cache:'no-store'}).then(r=>r.ok?r.text():'').then(v=>{v=v.trim();if(!v)return;if(ver&&v!==ver&&!real&&!show&&!holds.size)location.reload();ver=v;}).catch(()=>{});chk();setInterval(chk,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk();});})();
 window.__moves={MOVES,playMove,stopMove,J,get show(){return show}};
-window.__arm={ensureReal,goto:(slot,pulse)=>raw("/api/goto",{revision:state.revision,owner,slot,pulse}),get state(){return state},get real(){return real}};
+window.__armx={ensureReal,goto:(slot,pulse)=>raw("/api/goto",{revision:state.revision,owner,slot,pulse}),get state(){return state},get real(){return real}};
 // ---------- sound, music and screen effects ----------
 // Everything is made live with Web Audio (no sound files). Each move has its own little song.
 const S=(()=>{
