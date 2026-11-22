@@ -503,7 +503,7 @@ function draw(){
  $('jawA').setAttribute('d',`M${P(ax,ay)}L${P(ax+dx*len*.5+nx*spread,ay+dy*len*.5+ny*spread)}L${P(ax+dx*len+nx*spread*.6,ay+dy*len+ny*spread*.6)}`);
  $('jawB').setAttribute('d',`M${P(bx,by)}L${P(bx+dx*len*.5-nx*spread,by+dy*len*.5-ny*spread)}L${P(bx+dx*len-nx*spread*.6,by+dy*len-ny*spread*.6)}`);
  tipPt={x:x3+dx*len*.75,y:y3+dy*len*.75};
- if(typeof look!=='undefined'){const t=performance.now();$('costume').innerHTML=look?costume(look,x3,y3,a3,len,t):'';$('extras').innerHTML=look?bodyExtras(look,x0,y0,x1,y1,t):'';}
+ if(typeof look!=='undefined'){const t=performance.now();$('costume').innerHTML=look?costume(look,x3,y3,a3,len,t,J[5].v/100):'';$('extras').innerHTML=look?bodyExtras(look,x0,y0,x1,y1,t):'';}
  $('cArm').setAttribute('x2',37+26*Math.sin(rad(turn)));$('cArm').setAttribute('y2',37-26*Math.cos(rad(turn)));
  // ball
  const facing=Math.abs(turn-ball.ang)<12;
@@ -875,12 +875,12 @@ const S=(()=>{
   snare:t=>{noise(t,.14,{type:'bandpass',f:1900,q:.7,vol:.28});tone(200,t,.07,{vol:.1});},
   hat:t=>noise(t,.035,{f:8000,vol:.08}),
   ping:t=>{tone(1320,t,1.1,{type:'sine',vol:.16});tone(1980,t,.5,{type:'sine',vol:.05});},
-  hiss:t=>noise(t,.7,{type:'bandpass',f:6500,f2:3200,q:4,vol:.22}),
+  hiss:t=>{noise(t,.9,{type:'bandpass',f:6200,f2:3600,q:2.5,vol:.55});noise(t+.05,.7,{type:'highpass',f:7000,vol:.18});},
   rattle:t=>{for(let k=0;k<6;k++)noise(t+k*.035,.03,{f:5000,vol:.1});},
   clank:t=>{tone(1750,t,.35,{type:'square',vol:.07});tone(2630,t,.25,{type:'sine',vol:.08});noise(t,.08,{type:'bandpass',f:3000,vol:.3});},
   bubble:t=>tone(300+Math.random()*300,t,.12,{type:'sine',vol:.16,glide:1300}),
   snore:t=>{noise(t,1.1,{type:'lowpass',f:300,f2:900,vol:.22,q:6});tone(90,t,1.1,{type:'sawtooth',vol:.03});},
-  bark:t=>{tone(560,t,.11,{type:'sawtooth',vol:.14,glide:260});noise(t,.08,{type:'bandpass',f:1200,vol:.14});},
+  bark:t=>{for(const d of [0,.22]){const u=t+d;tone(480,u,.16,{type:'sawtooth',vol:.32,glide:190,attack:.004});tone(240,u,.14,{type:'square',vol:.12,glide:120});noise(u,.12,{type:'bandpass',f:900,f2:500,q:1.2,vol:.45});}},
   boing:t=>tone(180,t,.4,{type:'triangle',vol:.2,glide:720}),
   whoosh:t=>noise(t,1.4,{type:'lowpass',f:150,f2:5000,q:2,vol:.3}),
   rumble:t=>noise(t,.5,{type:'lowpass',f:180,q:3,vol:.35}),
@@ -924,7 +924,7 @@ const S=(()=>{
    if(c==='D'){tone(110,t,.35,{type:'sine',vol:.35,glide:70});noise(t,.05,{type:'lowpass',f:400,vol:.15});}
    if(c==='n')noise(t,.07,{type:'bandpass',f:2800,q:3,vol:.16});
    if(c==='t')noise(t,.04,{type:'bandpass',f:4200,q:4,vol:.12});
-   const hissNow=s===0&&pg.b%32===0&&pg.b>0;if(hissNow)SFX.hiss(t);
+   const hissNow=s===8||(s===0&&pg.b>0);if(hissNow)SFX.hiss(t);
    if(pg.cb&&s%2===0){const ms=Math.max(0,(t-now())*1000),info={step:s,beat:true,kick:c==='D',fx:hissNow};setTimeout(()=>pg&&pg.cb&&pg.cb(info),ms);}
    pg.beatT+=half;pg.b++;}}
  function stopPungi(){if(!pg)return;clearInterval(pg.timer);const t=now();pg.drone.stop(t);pg.lead.stop(t);pg.bg.gain.setTargetAtTime(0,t,.05);pg.bs.stop(t+.3);pg=null;}
@@ -967,7 +967,7 @@ const SONG={
  boo:{bpm:110,root:57,sc:'min',k:'x...x...x...x...',l:'0...........7...',fx:'boing',fxp:'............x...',p:'stars'},
  rocket:{bpm:140,root:50,sc:'min',k:'x.x.x.x.x.x.x.x.',h:'xxxxxxxxxxxxxxxx',b:'0.0.1.1.2.2.3.3.',fx:'whoosh',fxp:'x...............',p:'flames'},
  sleepy:{bpm:60,root:60,sc:'maj',l:'7...4...2...0...',lt:'sine',lv:.1,sus:3,fx:'snore',fxp:'x...............',p:'zzz'},
- dog:{bpm:104,root:55,sc:'maj',k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...x.',b:'0...0...3...4...',fx:'bark',fxp:'........x.x.....',p:'stars'},
+ dog:{bpm:104,root:55,sc:'maj',k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...x.',b:'0...0...3...4...',fx:'bark',fxp:'x.......x.......',p:'stars'},
  pour:{bpm:84,root:62,sc:'pen',k:'x.......x.......',b:'0.......3.......',l:'2...4...3...0...',lt:'sine',sus:3,fx:'pour',fxp:'x...............',p:'bubbles'}
 };
 const MOVE_SONG=['jingle','happy','happy','funky','mystery','radar','snap','work','dig','disco','disco','chill','royal','work','pour','happy','space','space','hammer','swim','snake','boo','rocket','sleepy','dog'];
@@ -1007,13 +1007,13 @@ const FX=(()=>{
 })();
 function shake(){const st=$('stage');st.classList.remove('shake');void st.offsetWidth;st.classList.add('shake');}
 // motor hum follows what is moving
-document.addEventListener('pointerdown',()=>S.unlock(),{capture:true});
+for(const ev of ['pointerdown','pointerup','touchend','click','keydown'])document.addEventListener(ev,()=>S.unlock(),{capture:true});
 document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('button:not(.move)');if(b&&!b.disabled&&b.id!=='stop')S.fx('click');},{capture:true});
 let lastStars=0;setInterval(()=>{if(stars>lastStars){S.fx('star');FX.burst('stars',14);FX.pulse('#ffd34d');}lastStars=stars;},150);
 function soundBtn(){const b=$('sndBtn');b.setAttribute('aria-pressed',String(S.on));b.setAttribute('aria-label',S.on?'Sound on. Tap to mute.':'Sound off. Tap for sound.');b.innerHTML=S.on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';}
 $('sndBtn').onclick=()=>{S.setOn(!S.on);soundBtn();if(S.on){S.fx('level');if(show)S.play(SONG[MOVE_SONG[show.k]]||SONG.happy,beatFx);}};
 soundBtn();
-function beatFx(info){if(!show)return;const th=SONG[MOVE_SONG[show.k]]||SONG.happy;if(info.kick||info.beat)FX.pulse();FX.burst(th.p,info.fx?9:4);if(th.shake&&info.fx){shake();buzz(25);}}
+function beatFx(info){if(!show)return;if(info.fx)mouthPop=performance.now();const th=SONG[MOVE_SONG[show.k]]||SONG.happy;if(info.kick||info.beat)FX.pulse();FX.burst(th.p,info.fx?9:4);if(th.shake&&info.fx){shake();buzz(25);}}
 
 // ---------- costumes: during a move the picture arm turns into an animal or character ----------
 const LOOK={dog:'dog',snake:'snake',swim:'fish',rocket:'rocket',sleepy:'sleepy',disco:'disco',hammer:'hammer',radar:'radar',happy:'smiley',funky:'cool',boo:'ghost',royal:'king',space:'alien',dig:'digger',work:'builder',pour:'cup',snap:'crab',mystery:'owl',chill:'sunny',jingle:''};
@@ -1038,27 +1038,34 @@ const SCENES={
  dog:'<path d="M250 200l8-4 30 0 8 4-8 4-30 0z" fill="#f3e3c3"/><circle cx="252" cy="196" r="4" fill="#f3e3c3"/><circle cx="252" cy="204" r="4" fill="#f3e3c3"/><circle cx="294" cy="196" r="4" fill="#f3e3c3"/><circle cx="294" cy="204" r="4" fill="#f3e3c3"/>',
  cup:'',crab:'<path d="M0 206h360v24H0z" fill="#e8cf8f" opacity=".35"/>',smiley:'',cool:'',builder:''
 };
-function costume(name,x,y,a,len,t){
- const w=Math.sin(t/120);
+// The claw is the mouth: the two jaws open and close with the hand (and pop open on a bark or hiss).
+let mouthPop=0;
+function jaws(op,hx,up,lo,extra=''){const ang=3+op*30;return `<g transform="rotate(${(-ang).toFixed(1)} ${hx} 0)">${up}</g><g transform="rotate(${ang.toFixed(1)} ${hx} 0)">${lo}</g>${extra}`;}
+function costume(name,x,y,a,len,t,op){
+ const w=Math.sin(t/120);if(performance.now()-mouthPop<260)op=Math.max(op,.9);
+ const face=(skin,hx,mouthC='#7a1f1f',teeth=true)=>jaws(op,hx,`<path d="M${hx} -1h14q4 0 4 3H${hx}z" fill="${skin}"/>${teeth?`<path d="M${hx+4} 2l2 3 2-3M${hx+10} 2l2 3 2-3" fill="#fff"/>`:''}`,`<path d="M${hx} 1h13q3 0 3-3H${hx}z" fill="${skin}"/>`,`<ellipse cx="${hx+6}" cy="0" rx="${3+op*5}" ry="${.6+op*4}" fill="${mouthC}"/>`);
  switch(name){
-  case 'snake':{const fl=(Math.sin(t/90)>.2)?1:0;return at(x,y,a,`<ellipse cx="9" cy="0" rx="15" ry="10" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(12,-5)}${eye(12,5)}<path d="M23 0h${10+fl*8}l4 -4M${33+fl*8} 0l4 4" stroke="#e8343c" stroke-width="2" fill="none" opacity="${fl?1:.0}"/><circle cx="21" cy="-2.5" r="1" fill="#111"/><circle cx="21" cy="2.5" r="1" fill="#111"/>`);}
-  case 'dog':return at(x,y,a,`<circle cx="10" cy="0" r="13" fill="#c98a4b"/><ellipse cx="6" cy="${-12+w}" rx="5" ry="9" fill="#7a4b22" transform="rotate(-25 6 -12)"/><ellipse cx="6" cy="${12-w}" rx="5" ry="9" fill="#7a4b22" transform="rotate(25 6 12)"/><ellipse cx="21" cy="0" rx="7" ry="6" fill="#e0b07a"/><circle cx="27" cy="0" r="3" fill="#111"/>${eye(12,-5,2.6)}${eye(12,5,2.6)}<path d="M22 4q3 ${7+w*2} 6 3" fill="#ff6f8f"/>`);
-  case 'fish':return at(x,y,a,`<ellipse cx="12" cy="0" rx="16" ry="10" fill="#ff9d2e"/><path d="M-2 0l-12 ${-9+w*3}v${18-w*6}z" fill="#ff7a1a"/><path d="M8 -10q6-8 12 0M8 10q6 8 12 0" fill="#ffb35c"/>${eye(20,-3,2.8)}<path d="M26 3q2 2 0 4" stroke="#7a3a00" fill="none"/>`);
+  case 'snake':{const fl=op>.35||Math.sin(t/90)>.4;return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
+   <path d="M10 0h${8+op*10}l4 -4M${18+op*10} 0l4 4" stroke="#e8343c" stroke-width="2" fill="none" opacity="${fl?1:0}"/>
+   ${jaws(op,8,`<path d="M8 -6q14 -4 22 3l-22 3z" fill="#3fa34d" stroke="#1f5e2a" stroke-width="1.5"/><path d="M22 -1.5l1.5 5 1.5-5" fill="#fff"/><circle cx="27" cy="-2" r=".9" fill="#111"/>`,`<path d="M8 6q12 3 19-3l-19-3z" fill="#7fd08a" stroke="#1f5e2a" stroke-width="1.5"/>`,`<ellipse cx="14" cy="0" rx="${2+op*6}" ry="${.5+op*4}" fill="#5a0f1a"/>`)}`);}
+  case 'dog':return at(x,y,a,`<circle cx="2" cy="0" r="13" fill="#c98a4b"/><ellipse cx="-2" cy="${-13+w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(-25 -2 -13)"/><ellipse cx="-2" cy="${13-w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(25 -2 13)"/>${eye(4,-6,2.6)}${eye(4,6,2.6)}
+   ${jaws(op,10,`<path d="M10 -8h12q6 0 6 6v2H10z" fill="#e0b07a"/><circle cx="27" cy="-3" r="3.2" fill="#111"/><path d="M16 0l1.5 3 1.5-3M22 0l1.5 3 1.5-3" fill="#fff"/>`,`<path d="M10 7h11q4 0 4-4v-3H10z" fill="#d9a56c"/><path d="M14 2q6 ${4+op*8} 10 ${1+op*3}" fill="#ff6f8f"/>`,`<ellipse cx="17" cy="0" rx="${2+op*7}" ry="${.5+op*5}" fill="#5a1520"/>`)}`);
+  case 'fish':return at(x,y,a,`<ellipse cx="2" cy="0" rx="14" ry="10" fill="#ff9d2e"/><path d="M-10 0l-12 ${-9+w*3}v${18-w*6}z" fill="#ff7a1a"/><path d="M-2 -10q6-8 12 0M-2 10q6 8 12 0" fill="#ffb35c"/>${eye(6,-4,2.8)}${jaws(op,12,`<path d="M12 -4q6 -1 8 3h-8z" fill="#ff6a3d"/>`,`<path d="M12 4q6 1 8 -3h-8z" fill="#ff6a3d"/>`,`<ellipse cx="15" cy="0" rx="${1+op*3}" ry="${.5+op*3}" fill="#6b1a00"/>`)}`);
+  case 'owl':return at(x,y,a,`<ellipse cx="4" cy="0" rx="13" ry="12" fill="#8a6239"/>${eye(6,-5,4.5)}${eye(6,5,4.5)}<path d="M-7 -10l-6 -5 6 1zM-7 10l-6 5 6 -1z" fill="#8a6239"/>${jaws(op,14,`<path d="M14 -3l8 3h-8z" fill="#ffb02e"/>`,`<path d="M14 3l7 -3h-7z" fill="#e0901a"/>`)}`);
+  case 'crab':return at(x,y,a,`<line x1="0" y1="-6" x2="-4" y2="-16" stroke="#e8343c" stroke-width="2"/><line x1="0" y1="6" x2="-4" y2="16" stroke="#e8343c" stroke-width="2"/>${eye(-4,-17,3)}${eye(-4,17,3)}`);
+  case 'smiley':return at(x,y,a,`<circle cx="4" cy="0" r="13" fill="#ffd34d"/>${eye(6,-5,2.5)}${eye(6,5,2.5)}${face('#ffd34d',14)}`);
+  case 'cool':return at(x,y,a,`<circle cx="4" cy="0" r="13" fill="#ffd34d"/><rect x="3" y="-10" width="7" height="8" rx="2" fill="#111"/><rect x="3" y="2" width="7" height="8" rx="2" fill="#111"/>${face('#ffd34d',14)}`);
+  case 'king':return at(x,y,a,`<circle cx="4" cy="0" r="12" fill="#ffd9b0"/><path d="M-8 -11l-10 -2 4 7 -4 6 4 6 -4 7 10 -2z" fill="#ffd34d" stroke="#b8860b" stroke-width="1.5"/>${eye(6,-5,2.4)}${eye(6,5,2.4)}${face('#ffd9b0',13)}`);
+  case 'sunny':return at(x,y,a,`<circle cx="4" cy="0" r="12" fill="#ffd9b0"/><rect x="4" y="-9" width="6" height="7" rx="2" fill="#111"/><rect x="4" y="2" width="6" height="7" rx="2" fill="#111"/>${face('#ffd9b0',13)}`);
+  case 'sleepy':return at(x,y,a,`<circle cx="4" cy="0" r="13" fill="#ffd9b0"/><path d="M6 -8v4M6 4v4" stroke="#5a3b1f" stroke-width="2"/><path d="M-8 -10l-6 -14 20 4z" fill="#5f7cff"/><circle cx="-14" cy="-24" r="3.5" fill="#fff"/>${face('#ffd9b0',14,'#7a1f1f',false)}`);
+  case 'alien':return at(x,y,a,`<ellipse cx="4" cy="0" rx="13" ry="11" fill="#7cf07a"/><ellipse cx="6" cy="-5" rx="3" ry="4.5" fill="#111"/><ellipse cx="6" cy="5" rx="3" ry="4.5" fill="#111"/><path d="M-8 -8l-10 ${-6+w*3}M-8 8l-10 ${6-w*3}" stroke="#7cf07a" stroke-width="2"/><circle cx="-19" cy="${-7+w*3}" r="2.5" fill="#ff5d8f"/><circle cx="-19" cy="${7-w*3}" r="2.5" fill="#ff5d8f"/>${face('#7cf07a',14,'#1a3d1a',false)}`);
+  case 'ghost':return at(x,y,a,`<path d="M-12 -14h18a14 14 0 0 1 0 28h-18l4 -5 -4 -4 4 -5 -4 -5 4 -5z" fill="#f4f2ff" opacity=".92"/>${eye(4,-5,2.6)}${eye(4,5,2.6)}${face('#f4f2ff',13,'#333',false)}`);
   case 'rocket':return at(x,y,a,`<rect x="-2" y="-8" width="24" height="16" rx="3" fill="#e9eef5"/><path d="M22 -8q14 8 0 16z" fill="#e8343c"/><circle cx="12" cy="0" r="4" fill="#4aa3ff" stroke="#2b5d99" stroke-width="1.5"/><path d="M0 -8l-6 -7v7zM0 8l-6 7v-7z" fill="#e8343c"/><path d="M-3 -4q${-12-w*5} 4 0 8" fill="#ffb02e"/>`);
-  case 'sleepy':return at(x,y,a,`<circle cx="10" cy="0" r="13" fill="#ffd9b0"/><path d="M6 -9q4-3 8 0M6 5q4 3 8 0" stroke="#5a3b1f" stroke-width="2" fill="none" transform="rotate(90 10 0)"/><path d="M-2 -10l-6 -14 20 4z" fill="#5f7cff"/><circle cx="-8" cy="-24" r="3.5" fill="#fff"/><circle cx="20" cy="0" r="${2+Math.abs(w)*1.5}" fill="#c0392b" opacity=".6"/>`);
   case 'hammer':return at(x,y,a,`<rect x="0" y="-2.5" width="18" height="5" fill="#8a5a2b"/><rect x="16" y="-13" width="12" height="26" rx="2" fill="#9aa3b2" stroke="#5d6676" stroke-width="2"/>`);
   case 'radar':return at(x,y,a,`<path d="M10 -16q16 16 0 32" fill="#dfe4ec" stroke="#8b93a8" stroke-width="2"/><line x1="10" y1="0" x2="22" y2="0" stroke="#8b93a8" stroke-width="2"/><circle cx="22" cy="0" r="2.5" fill="#4dff9a"/>`);
-  case 'smiley':return at(x,y,a,`<circle cx="12" cy="0" r="13" fill="#ffd34d"/>${eye(15,-5,2.5)}${eye(15,5,2.5)}<path d="M20 -6q8 6 0 12" stroke="#7a4c00" stroke-width="2" fill="none"/>`);
-  case 'cool':return at(x,y,a,`<circle cx="12" cy="0" r="13" fill="#ffd34d"/><rect x="11" y="-10" width="7" height="8" rx="2" fill="#111"/><rect x="11" y="2" width="7" height="8" rx="2" fill="#111"/><line x1="14" y1="-2" x2="14" y2="2" stroke="#111" stroke-width="2"/><path d="M21 -4q4 4 0 8" stroke="#7a4c00" stroke-width="2" fill="none"/>`);
-  case 'ghost':return at(x,y,a,`<path d="M-4 -14h18a14 14 0 0 1 0 28h-18l4 -5 -4 -4 4 -5 -4 -5 4 -5z" fill="#f4f2ff" opacity=".92"/>${eye(14,-5,2.6)}${eye(14,5,2.6)}<ellipse cx="22" cy="0" rx="2" ry="3.5" fill="#333"/>`);
-  case 'king':return at(x,y,a,`<circle cx="12" cy="0" r="12" fill="#ffd9b0"/><path d="M0 -11l-10 -2 4 7 -4 6 4 6 -4 7 10 -2z" fill="#ffd34d" stroke="#b8860b" stroke-width="1.5"/>${eye(15,-5,2.4)}${eye(15,5,2.4)}<path d="M21 -3q3 3 0 6" stroke="#7a3a00" fill="none" stroke-width="1.5"/>`);
-  case 'alien':return at(x,y,a,`<ellipse cx="12" cy="0" rx="13" ry="11" fill="#7cf07a"/><ellipse cx="15" cy="-5" rx="3" ry="4.5" fill="#111"/><ellipse cx="15" cy="5" rx="3" ry="4.5" fill="#111"/><path d="M0 -8l-10 ${-6+w*3}M0 8l-10 ${6-w*3}" stroke="#7cf07a" stroke-width="2"/><circle cx="-11" cy="${-7+w*3}" r="2.5" fill="#ff5d8f"/><circle cx="-11" cy="${7-w*3}" r="2.5" fill="#ff5d8f"/>`);
-  case 'digger':return at(x,y,a,`<path d="M0 -6h16l10 6 -4 12h-14z" fill="#ffc21a" stroke="#6b5200" stroke-width="2"/><path d="M12 12l2 5M17 12l2 5M22 11l2 5" stroke="#6b5200" stroke-width="2"/>`);
+  case 'digger':return at(x,y,a,jaws(op,2,`<path d="M2 -2h16l10 4 -4 4h-22z" fill="#ffc21a" stroke="#6b5200" stroke-width="2" transform="translate(0 -6)"/>`,`<path d="M2 2h16l6 4h-22z" fill="#e0a800" stroke="#6b5200" stroke-width="2"/><path d="M12 8l2 4M17 8l2 4M22 7l2 4" stroke="#6b5200" stroke-width="2"/>`));
   case 'builder':return at(x,y,a,`<rect x="0" y="-5" width="14" height="10" rx="3" fill="#ffb02e"/><rect x="14" y="-1.5" width="16" height="3" fill="#cfd6e6"/><path d="M30 -2l4 2-4 2z" fill="#cfd6e6"/>`);
   case 'cup':return at(x,y,a,`<path d="M4 -10h18l-3 20h-12z" fill="#ffffff" opacity=".9"/><path d="M7 -6h12l-2 12h-8z" fill="#ff7a2e"/>`);
-  case 'crab':return at(x,y,a,`<line x1="0" y1="-6" x2="-4" y2="-16" stroke="#e8343c" stroke-width="2"/><line x1="0" y1="6" x2="-4" y2="16" stroke="#e8343c" stroke-width="2"/>${eye(-4,-17,3)}${eye(-4,17,3)}`);
-  case 'owl':return at(x,y,a,`<ellipse cx="10" cy="0" rx="13" ry="12" fill="#8a6239"/>${eye(12,-5,4.5)}${eye(12,5,4.5)}<path d="M20 -2l5 2-5 2z" fill="#ffb02e"/><path d="M-1 -10l-6 -5 6 1zM-1 10l-6 5 6 -1z" fill="#8a6239"/>`);
-  case 'sunny':return at(x,y,a,`<circle cx="12" cy="0" r="12" fill="#ffd9b0"/><rect x="12" y="-9" width="6" height="7" rx="2" fill="#111"/><rect x="12" y="2" width="6" height="7" rx="2" fill="#111"/><path d="M20 -3q3 3 0 6" stroke="#7a3a00" fill="none" stroke-width="1.5"/>`);
  }
  return '';
 }
