@@ -397,8 +397,8 @@ const ARROW={left:'<path d="M19 12H5M11 6l-6 6 6 6"/>',right:'<path d="M5 12h14M
 // Practice values only. They are a picture, never a servo command or a measured position.
 const J=[
  {key:'turn',name:'Turn',c:'--c0',min:-90,max:90,v:0,speed:60,a:['left','Left',-1],b:['right','Right',1]},
- {key:'lift',name:'Lift',c:'--c1',min:20,max:160,v:75,speed:45,a:['down','Down',-1],b:['up','Up',1]},
- {key:'bend',name:'Bend',c:'--c2',min:0,max:150,v:70,speed:45,a:['down','Down',1],b:['up','Up',-1]},
+ {key:'lift',name:'Lift',c:'--c1',min:20,max:160,v:65,g:75,speed:45,a:['down','Down',-1],b:['up','Up',1]},
+ {key:'bend',name:'Bend',c:'--c2',min:-80,max:150,v:5,g:90,speed:45,a:['down','Down',1],b:['up','Up',-1]},
  {key:'wrist',name:'Wrist',c:'--c3',min:-90,max:90,v:20,speed:60,a:['down','Down',1],b:['up','Up',-1]},
  {key:'twist',name:'Twist',c:'--c4',min:-90,max:90,v:0,speed:90,a:['ccw','Left',-1],b:['cw','Right',1]},
  {key:'hand',name:'Hand',c:'--c5',min:0,max:100,v:30,speed:120,a:['open','Open',1],b:['close','Close',-1]}
@@ -570,7 +570,10 @@ function render(){
 }
 function fillForm(){const j=state.joints[selected];$('slot').value=selected;$('jointName').value=j.name;$('channel').value=j.channel;for(const k of ['low','start','high'])$(k).value=j[k]||'';$('mapped').checked=!!j.mapped;$('reverse').checked=!!j.reverse;}
 function select(i){if(state.active||state.armed){message('Stop the test before changing joints.',true);fillForm();return;}selected=i;fillForm();render();}
-function apply(s){const wasSession=state.armed||state.active,previousToken=state.token;state=validate(s);connected=true;if(real&&!state.driving){real=false;owner='';clearInterval(pressTimer);pressTimer=0;tip('<strong>Real arm stopped.</strong> Touch a control to continue.');}if((wasSession&&!state.armed&&!state.active)||previousToken!==state.token||state.firmwareLocked){owner='';$('physicalReady').checked=false;$('startReady').checked=false;}render();}
+// When idle, the picture shows where the real arm really is (from the pulses it reports).
+function followReal(){if(!(real&&LIVE&&state.held)||show||(typeof holds!=='undefined'&&holds.size))return;let ch=false;
+ for(let i=0;i<6;i++){const h=state.held[i];if(!h||!state.joints[i].verified)continue;const v=vOfPulse(i,h),a=picFor(i,v);mv.cur[i]=v;if(Math.abs(J[i].v-a)>.5){J[i].v=a;ch=true;}}if(ch)draw();}
+function apply(s){const wasSession=state.armed||state.active,previousToken=state.token;state=validate(s);connected=true;if(real&&!state.driving){real=false;owner='';clearInterval(pressTimer);pressTimer=0;tip('<strong>Real arm stopped.</strong> Touch a control to continue.');}followReal();if((wasSession&&!state.armed&&!state.active)||previousToken!==state.token||state.firmwareLocked){owner='';$('physicalReady').checked=false;$('startReady').checked=false;}render();}
 // ---------- internet link: signed commands through a public relay ----------
 const R={ws:null,up:false,last:null,lastAt:0,seq:0,sid:'',key:null,chain:Promise.resolve(),buf:new Uint8Array(0),waiters:[],ping:0};
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -916,7 +919,11 @@ function parseSong(txt){const notes=[],cues=[];let line=[],lines=[];
  if(line.length)lines.push(line);return {notes,cues,lines:lines.map(l=>l.filter(Boolean))};}
 // ---- picture glides ----
 const glides=new Map();
-function glideTo(p,dur){const t0=performance.now();for(const [k,v] of Object.entries(p)){const i=JK[k];const vv=Math.max(-CAP[i],Math.min(CAP[i],v));glides.set(i,{from:J[i].v,to:picFor(i,vv),t0,t1:t0+Math.max(60,dur*1000)});mv.cur[i]=vv;}}
+function vOfPulse(i,pu){const j=state.joints[i],d=pu>=j.start?(pu-j.start)/((j.high-j.start)||1):(pu-j.start)/((j.start-j.low)||1);return Math.max(-1,Math.min(1,d*(j.reverse?-1:1)));}
+const REAL_RATE=i=>i===5?1000:350; // us per second at Fast during shows (claw: fast glide)
+function glideTo(p,dur,tok){const t0=performance.now();for(const [k,v] of Object.entries(p)){const i=JK[k];const vv=Math.max(-CAP[i],Math.min(CAP[i],v));let d=dur;
+  if(tok&&tok.real&&real&&LIVE&&state.joints[i].verified)d=Math.max(d,Math.abs(pulseFor(i,vv)-pulseFor(i,mv.cur[i]))/REAL_RATE(i));
+  glides.set(i,{from:J[i].v,to:picFor(i,vv),t0,t1:t0+Math.max(60,d*1000)});mv.cur[i]=vv;}}
 function showLoop(){if(!show)return;const n=performance.now();
  for(const [i,g] of glides){const k=Math.min(1,(n-g.t0)/(g.t1-g.t0)),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;J[i].v=g.from+(g.to-g.from)*e;if(k>=1)glides.delete(i);}
  draw();game();requestAnimationFrame(showLoop);}
@@ -928,9 +935,10 @@ function realPose(p,tok){if(!(tok.real&&real&&LIVE))return;for(const [k,v] of Ob
 function cueAt(c,T,B,tok){const ms=Math.max(0,(T-S.clock())*1000);
  if(c.sfx)S.fxAt(c.sfx,T);if(c.say)S.sayAt(c.say,T,c.voice);
  const p=c.p||{};
- setTimeout(()=>{if(!tok.alive)return;glideTo(p,(c.d||.25)*B);if(c.burst)FX.burst(c.burst,c.n||8);if(c.glow)FX.pulse(c.glow);if(c.shake)shake();if(c.pop)mouthPop=performance.now();if(c.lyric)c.lyric();},ms);
+ setTimeout(()=>{if(!tok.alive)return;glideTo(p,(c.d||.25)*B,tok);if(c.burst)FX.burst(c.burst,c.n||8);if(c.glow)FX.pulse(c.glow);if(c.shake)shake();if(c.pop)mouthPop=performance.now();if(c.lyric)c.lyric();},ms);
  if(Object.keys(p).length)setTimeout(()=>{if(tok.alive)realPose(p,tok);},Math.max(0,ms-SHOW_LEAD*1000));}
 function showStart(k){stopMove();release();const m=MOVES[k],tok={k,alive:true,loop:1,real:real,sent:[]};show=tok;glides.clear();
+ if(tok.real&&real&&LIVE&&state.held)for(let i=0;i<6;i++){const h=state.held[i];if(h&&state.joints[i].verified){const v=vOfPulse(i,h);mv.cur[i]=v;J[i].v=picFor(i,v);tok.sent[i]=h;}}
  mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
  $('npName').textContent=m.n;$('npLoop').textContent='';$('nowPlay').classList.add('open');$('npLyric').innerHTML='';
  setLook(m.look||'');if(tok.real&&real&&LIVE)raw('/api/speed',{revision:state.revision,owner,level:4}).catch(()=>{});
@@ -978,7 +986,7 @@ const sleep=(ms,tok)=>new Promise(ok=>{const t0=performance.now();const tick=()=
 // Joint value -1..1 -> pulse inside that joint's saved limits.
 function pulseFor(i,v){const j=state.joints[i],s=j.reverse?-1:1,d=v*s;return Math.round(d>=0?j.start+d*(j.high-j.start):j.start+d*(j.start-j.low));}
 // Joint value -1..1 -> picture angle.
-function picFor(i,v){const j=J[i],span=(j.max-j.min)/2;return Math.max(j.min,Math.min(j.max,START[i]+v*span));}
+function picFor(i,v){const j=J[i],span=j.g||(j.max-j.min)/2;return Math.max(j.min,Math.min(j.max,START[i]+v*span));}
 const mv={cur:[0,0,0,0,0,0]};
 async function goFrame(f,tok){
  const live=real&&LIVE,idx=[],from=[],to=[];let longest=0;
@@ -1004,7 +1012,7 @@ async function playMove(k){
  S.play(SONG[MOVE_SONG[k]]||SONG.happy,beatFx);setLook(LOOK[MOVE_SONG[k]]);costumeLoop();
  $('npName').textContent=m.n;$('npLoop').textContent=m.once?'':'loop 1';$('nowPlay').classList.add('open');
  tip(real?`<strong>${m.n}.</strong> The real arm is doing it. Tap Stop to end.`:LIVE&&connected&&!state.firmwareLocked?`<strong>${m.n}</strong> on the picture only. Connect the arm to make it do it.`:`<strong>${m.n}</strong> (practice picture).`);
- if(tok.real)for(let i=0;i<6;i++){const h=state.held&&state.held[i];if(h){const j=state.joints[i],s=j.reverse?-1:1,d=(h-j.start)*s;mv.cur[i]=d>=0?d/((j.high-j.start)||1)*1:d/((j.start-j.low)||1);}else mv.cur[i]=0;}
+ if(tok.real)for(let i=0;i<6;i++){const h=state.held&&state.held[i];if(h&&state.joints[i].verified){mv.cur[i]=vOfPulse(i,h);J[i].v=picFor(i,mv.cur[i]);}else mv.cur[i]=0;}
  for(const f of m.intro||[]){if(!tok.alive)break;await goFrame(f,tok);}
  while(tok.alive){for(const f of m.loop){if(!tok.alive||(tok.real&&!real))break;await goFrame(f,tok);}if(m.once||(tok.real&&!real))break;tok.loop++;S.fx('level');$('npLoop').textContent=`loop ${tok.loop}`;}
  if(show===tok){show=null;tok.alive=false;endMoveUi();if(m.once&&!tok.stopped)tip(`<strong>${m.n}</strong> done.`);}
