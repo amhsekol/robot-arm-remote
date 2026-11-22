@@ -846,6 +846,7 @@ function endMoveUi(){S.stop();setLook('');$('nowPlay').classList.remove('open');
 function stopMove(){const tok=show;if(!tok)return;tok.alive=false;tok.stopped=true;show=null;endMoveUi();
  // Freeze every gliding joint where it is: a zero press ends the glide on the arm.
  if(tok.real&&real&&LIVE)for(let i=0;i<6;i++)if(state.joints[i].verified&&state.held&&state.held[i])raw('/api/press',{revision:state.revision,owner,slot:i,direction:0}).catch(()=>{});}
+(()=>{let ver='';const chk=()=>fetch('build.txt',{cache:'no-store'}).then(r=>r.ok?r.text():'').then(v=>{v=v.trim();if(!v)return;if(ver&&v!==ver&&!real&&!show&&!holds.size)location.reload();ver=v;}).catch(()=>{});chk();setInterval(chk,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk();});})();
 window.__moves={MOVES,playMove,stopMove,get show(){return show}};
 // ---------- sound, music and screen effects ----------
 // Everything is made live with Web Audio (no sound files). Each move has its own little song.
@@ -856,7 +857,13 @@ const S=(()=>{
   nb=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
   mo=ctx.createOscillator();mo.type='sawtooth';mf=ctx.createBiquadFilter();mf.type='lowpass';mf.frequency.value=420;mg=ctx.createGain();mg.gain.value=0;mo.connect(mf);mf.connect(mg);mg.connect(master);mo.frequency.value=70;mo.start();
   return ctx;}
- const unlock=()=>{init();if(ctx&&ctx.state==='suspended')ctx.resume().catch(()=>{});};
+ // real recordings (dog: Amada44, CC BY-SA 3.0, Wikimedia Commons; rattlesnake: public domain, Wikimedia Commons)
+ const BUF={},SAMPLES={bark:'sounds/bark.mp3',rattle:'sounds/rattle.mp3'};let loading=false;
+ function loadSamples(){if(loading||!ctx)return;loading=true;for(const [k,u] of Object.entries(SAMPLES))fetch(u).then(r=>r.arrayBuffer()).then(b=>new Promise((ok,no)=>ctx.decodeAudioData(b,ok,no))).then(x=>{BUF[k]=x;}).catch(()=>{});}
+ function sample(k,t,vol=1,rate=1){if(!ctx||!BUF[k])return false;const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=BUF[k];s.playbackRate.value=rate;g.gain.value=vol;s.connect(g);g.connect(master);s.start(t);return true;}
+ let voiceReady=false;
+ function say(text,t,o={}){if(!on||!window.speechSynthesis)return;const d=Math.max(0,(t-now())*1000);setTimeout(()=>{try{const u=new SpeechSynthesisUtterance(text);u.pitch=o.pitch||1.7;u.rate=o.rate||1.05;u.volume=1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}},d);}
+ const unlock=()=>{init();if(ctx&&ctx.state==='suspended')ctx.resume().catch(()=>{});loadSamples();if(!voiceReady&&window.speechSynthesis){voiceReady=true;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch{}}};
  const now=()=>ctx?ctx.currentTime:0;
  function tone(f,t,dur,o={}){if(!ctx)return;const {type='triangle',vol=.2,glide=0,attack=.005}=o;const os=ctx.createOscillator(),g=ctx.createGain();os.type=type;os.frequency.setValueAtTime(f,t);if(glide)os.frequency.exponentialRampToValueAtTime(glide,t+dur);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+dur);os.connect(g);g.connect(master);os.start(t);os.stop(t+dur+.05);}
  function noise(t,dur,o={}){if(!ctx)return;const {vol=.2,type='highpass',f=6000,q=1,f2=0}=o;const s=ctx.createBufferSource();s.buffer=nb;const b=ctx.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f2)b.frequency.exponentialRampToValueAtTime(f2,t+dur);b.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(b);b.connect(g);g.connect(master);s.start(t,Math.random()*.5);s.stop(t+dur+.05);}
@@ -875,12 +882,13 @@ const S=(()=>{
   snare:t=>{noise(t,.14,{type:'bandpass',f:1900,q:.7,vol:.28});tone(200,t,.07,{vol:.1});},
   hat:t=>noise(t,.035,{f:8000,vol:.08}),
   ping:t=>{tone(1320,t,1.1,{type:'sine',vol:.16});tone(1980,t,.5,{type:'sine',vol:.05});},
-  hiss:t=>{noise(t,.9,{type:'bandpass',f:6200,f2:3600,q:2.5,vol:.55});noise(t+.05,.7,{type:'highpass',f:7000,vol:.18});},
+  hiss:t=>{sample('rattle',t,.7);noise(t,.9,{type:'bandpass',f:6200,f2:3600,q:2.5,vol:.55});noise(t+.05,.7,{type:'highpass',f:7000,vol:.18});},
   rattle:t=>{for(let k=0;k<6;k++)noise(t+k*.035,.03,{f:5000,vol:.1});},
   clank:t=>{tone(1750,t,.35,{type:'square',vol:.07});tone(2630,t,.25,{type:'sine',vol:.08});noise(t,.08,{type:'bandpass',f:3000,vol:.3});},
   bubble:t=>tone(300+Math.random()*300,t,.12,{type:'sine',vol:.16,glide:1300}),
   snore:t=>{noise(t,1.1,{type:'lowpass',f:300,f2:900,vol:.22,q:6});tone(90,t,1.1,{type:'sawtooth',vol:.03});},
-  bark:t=>{for(const d of [0,.22]){const u=t+d;tone(480,u,.16,{type:'sawtooth',vol:.32,glide:190,attack:.004});tone(240,u,.14,{type:'square',vol:.12,glide:120});noise(u,.12,{type:'bandpass',f:900,f2:500,q:1.2,vol:.45});}},
+  bark:t=>{if(sample('bark',t,1))return;for(const d of [0,.22]){const u=t+d;tone(480,u,.16,{type:'sawtooth',vol:.32,glide:190,attack:.004});tone(240,u,.14,{type:'square',vol:.12,glide:120});noise(u,.12,{type:'bandpass',f:900,f2:500,q:1.2,vol:.45});}},
+  peek:t=>{say('Peek a boo!',t,{pitch:1.8,rate:1.1});tone(hz(84),t+.5,.25,{type:'sine',vol:.15});tone(hz(88),t+.62,.3,{type:'sine',vol:.15});},
   boing:t=>tone(180,t,.4,{type:'triangle',vol:.2,glide:720}),
   whoosh:t=>noise(t,1.4,{type:'lowpass',f:150,f2:5000,q:2,vol:.3}),
   rumble:t=>noise(t,.5,{type:'lowpass',f:180,q:3,vol:.35}),
@@ -964,7 +972,7 @@ const SONG={
  hammer:{bpm:100,root:50,sc:'min',k:'x...x...x...x...',b:'0...0...0...0...',fx:'clank',fxp:'x.......x.......',p:'sparks',shake:1},
  swim:{bpm:96,root:65,sc:'maj',h:'..x...x...x...x.',b:'0...4...5...4...',l:'7...4...5...2...',lt:'sine',sus:3,fx:'bubble',fxp:'..x...x..x...x..',p:'bubbles'},
  snake:{pungi:true,bpm:92,root:62,p:'wiggle'},
- boo:{bpm:110,root:57,sc:'min',k:'x...x...x...x...',l:'0...........7...',fx:'boing',fxp:'............x...',p:'stars'},
+ boo:{bpm:110,root:57,sc:'min',k:'x...x...x...x...',l:'0...........7...',fx:'peek',fxp:'............x...',p:'stars'},
  rocket:{bpm:140,root:50,sc:'min',k:'x.x.x.x.x.x.x.x.',h:'xxxxxxxxxxxxxxxx',b:'0.0.1.1.2.2.3.3.',fx:'whoosh',fxp:'x...............',p:'flames'},
  sleepy:{bpm:60,root:60,sc:'maj',l:'7...4...2...0...',lt:'sine',lv:.1,sus:3,fx:'snore',fxp:'x...............',p:'zzz'},
  dog:{bpm:104,root:55,sc:'maj',k:'x...x...x...x...',s:'....x.......x...',h:'..x...x...x...x.',b:'0...0...3...4...',fx:'bark',fxp:'x.......x.......',p:'stars'},
