@@ -61,7 +61,7 @@ h1,h2,h3,p{margin:0}
 .move:disabled{opacity:.35;cursor:not-allowed}
 .stopbar{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--bg) 70%,transparent);z-index:3}
 .stopbar button{display:block;width:100%;max-width:1120px;margin:auto;min-height:64px;border:0;border-radius:var(--r);background:var(--stop);color:#fff;font-size:var(--lg);font-weight:700;letter-spacing:.06em}
-.stopbar button:active{background:var(--stop-press)}
+.stopbar button:active{background:var(--stop-press)}.stopbar button.go,#stop.go{background:oklch(68% .17 150)!important;color:oklch(18% .02 150)!important}
 dialog{border:0;border-radius:var(--r);background:var(--panel);color:var(--ink);padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
 dialog::backdrop{background:oklch(10% 0 0 / .65)}
 .sheet{padding:20px;display:grid;gap:14px}
@@ -427,7 +427,7 @@ J.forEach((j,i)=>{
 });
 function hold(i,dir,btn){if(show)stopMove();const was=holds.get(i);if(was){if(was.btn===btn&&was.dir===dir)return;was.btn.classList.remove('held');holds.delete(i);}
  const h={i,dir,btn};holds.set(i,h);held=h;btn.classList.add('held');tip(`${J[i].name}: ${btn.querySelector('small').textContent.toLowerCase()}…`);
- if(real)realHold(i,dir);if(holds.size===1){last=performance.now();requestAnimationFrame(step);}}
+ if(real)realHold(i,dir);else if(canAuto())ensureReal().then(ok=>{if(ok&&holds.get(i)===h)realHold(i,dir);});if(holds.size===1){last=performance.now();requestAnimationFrame(step);}}
 function releaseJoint(i){const h=holds.get(i);if(!h)return;h.btn.classList.remove('held');holds.delete(i);held=holds.size?[...holds.values()].pop():null;if(real)realRelease(i);}
 function releaseBtn(b){for(const h of [...holds.values()])if(h.btn===b)releaseJoint(h.i);}
 function release(){for(const i of [...holds.keys()])releaseJoint(i);keysDown.clear();}
@@ -470,17 +470,15 @@ function realHold(i,dir){
 }
 function realRelease(i){if(!holds.size){clearInterval(pressTimer);pressTimer=0;}if(state.joints[i].verified){if(pressBusy)pendingStops.add(i);else press(i,0);}}
 function realOff(){real=false;owner='';clearInterval(pressTimer);pressTimer=0;render();}
-$('real').onclick=async()=>{
- if(real){release();realOff();try{apply(await raw('/api/stop',{}));}catch(e){lose(e);}tip('<strong>Real arm OFF.</strong> Signals off. Supply OUTPUT OFF cuts servo power.');return;}
- if(!state.ready||state.fault){
-  if(!REMOTE){tip('<strong>First</strong> open Settings (sliders icon) and tap "Check signals are off".');return;}
-  try{apply(await raw('/api/check',{}));}catch(e){lose(e);return;}
-  if(!state.ready||state.fault){tip('<strong>The arm failed its signal check.</strong> Check it at the laptop.');return;}
- }
- if(!confirm(REMOTE?'Real arm ON from far away?\n\nYou must be able to SEE the arm (camera or video call). Nobody near it. If the picture freezes, tap STOP.':'Real arm ON?\n\nArm clear, hands away, your other hand on the supply OUTPUT button.'))return;
- try{const next=await raw('/api/play',{revision:state.revision,confirm:'SUPPORTED_CLEAR_CUTOFF_READY'});owner=next.owner;apply(next);real=true;render();if(typeof S!=='undefined')S.fx('power');await sendSpeed();tip('<strong>Real arm ON.</strong> Hold a button to move. Let go to stop.');}
- catch(e){lose(e);}
-};
+// The arm takes control on the first touch (stick, move or Calibrate). STOP stops it; the same button then says START.
+let userStopped=false,engaging=null;
+const canAuto=()=>LIVE&&connected&&!state.firmwareLocked&&!userStopped&&!real;
+function ensureReal(){if(real)return Promise.resolve(true);if(!canAuto())return Promise.resolve(false);if(engaging)return engaging;
+ engaging=(async()=>{try{
+  if(!state.ready||state.fault){if(!REMOTE){tip('<strong>First</strong> open Settings and tap "Check signals are off".');return false;}apply(await raw('/api/check',{}));if(!state.ready||state.fault){tip('<strong>The arm failed its signal check.</strong> Check it at the laptop.');return false;}}
+  const next=await raw('/api/play',{revision:state.revision,confirm:'SUPPORTED_CLEAR_CUTOFF_READY'});if(userStopped)return false;owner=next.owner;apply(next);real=true;render();S.fx('power');await sendSpeed();return true;
+ }catch(e){lose(e);return false;}finally{engaging=null;}})();return engaging;}
+$('real').onclick=()=>ensureReal();
 setInterval(async()=>{
  if(!real||holds.size||pressBusy||document.hidden)return;
  pressBusy=true;try{apply(await raw('/api/beat',{revision:state.revision,owner}));}catch(e){realOff();lose(e);}finally{pressBusy=false;}
@@ -545,8 +543,8 @@ function render(){
  const j=state.joints[selected],locked=LIVE?(!connected||state.firmwareLocked):true;
  const pill=$('mode');pill.classList.toggle('ok',LIVE&&connected);pill.classList.toggle('bad',LIVE&&!connected);
  $('modeText').textContent=!LIVE?'Practice':!connected?'Not connected':state.firmwareLocked?'Arm locked':real?'Real arm':state.active?'Test running':'Connected';
- const rb=$('real');rb.hidden=!LIVE||!connected||state.firmwareLocked;rb.classList.toggle('on',real);rb.textContent=real?'Real arm: ON (tap to turn off)':'Real arm: OFF (tap to turn on)';
- $('helpMode').textContent=LIVE&&connected&&!state.firmwareLocked?'Tap Real arm ON to move set-up joints with the big buttons. Joints not set up yet move the picture only. The bench supply OUTPUT switch is the true power-off.':'Right now this is practice: the buttons move the picture only. The real arm stays locked until its setup is finished. For real servo power, the bench supply OUTPUT switch is the true off switch.';
+ const rb=$('real');rb.hidden=true;rb.classList.toggle('on',real);rb.textContent=real?'Real arm: ON (tap to turn off)':'Real arm: OFF (tap to turn on)';
+ $('helpMode').textContent=LIVE&&connected&&!state.firmwareLocked?'The arm follows as soon as you touch a control. STOP stops it; tap START to go again. Joints not set up yet move the picture only. The bench supply OUTPUT switch is the true power-off.':'Right now this is practice: the buttons move the picture only. The real arm stays locked until its setup is finished. For real servo power, the bench supply OUTPUT switch is the true off switch.';
  $('connectionText').textContent=LIVE?(connected?(REMOTE?'Connected to the arm over the internet':'Connected to the arm over Wi-Fi'):'Not connected to the arm'):'Practice on this phone only';
  $('reconnect').hidden=!LIVE||connected;
  for(const id of fields)$(id).disabled=busy||!connected||state.active||state.armed;
@@ -566,7 +564,7 @@ function render(){
 }
 function fillForm(){const j=state.joints[selected];$('slot').value=selected;$('jointName').value=j.name;$('channel').value=j.channel;for(const k of ['low','start','high'])$(k).value=j[k]||'';$('mapped').checked=!!j.mapped;$('reverse').checked=!!j.reverse;}
 function select(i){if(state.active||state.armed){message('Stop the test before changing joints.',true);fillForm();return;}selected=i;fillForm();render();}
-function apply(s){const wasSession=state.armed||state.active,previousToken=state.token;state=validate(s);connected=true;if(real&&!state.driving){real=false;owner='';clearInterval(pressTimer);pressTimer=0;tip('<strong>Real arm stopped.</strong> Tap Real arm to start again.');}if((wasSession&&!state.armed&&!state.active)||previousToken!==state.token||state.firmwareLocked){owner='';$('physicalReady').checked=false;$('startReady').checked=false;}render();}
+function apply(s){const wasSession=state.armed||state.active,previousToken=state.token;state=validate(s);connected=true;if(real&&!state.driving){real=false;owner='';clearInterval(pressTimer);pressTimer=0;tip('<strong>Real arm stopped.</strong> Touch a control to continue.');}if((wasSession&&!state.armed&&!state.active)||previousToken!==state.token||state.firmwareLocked){owner='';$('physicalReady').checked=false;$('startReady').checked=false;}render();}
 // ---------- internet link: signed commands through a public relay ----------
 const R={ws:null,up:false,last:null,lastAt:0,seq:0,sid:'',key:null,chain:Promise.resolve(),buf:new Uint8Array(0),waiters:[],ping:0};
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -655,11 +653,13 @@ $('physicalReady').onchange=$('startReady').onchange=render;
 $('arm').onclick=()=>act('arm',{slot:selected,confirm:'SUPPORTED_CLEAR_CUTOFF_READY'});
 $('engage').onclick=()=>act('engage',{owner,confirm:'INSPECTED_START_ALIGNMENT'});
 $('jogMinus').onclick=()=>act('jog',{owner,direction:-1});$('jogPlus').onclick=()=>act('jog',{owner,direction:1});
-$('stop').onclick=async()=>{if(show)stopMove();if(typeof S!=='undefined')S.fx('stop');
+function stopBtnShow(){const b=$('stop');const st=userStopped&&LIVE;b.textContent=st?'START':'STOP';b.classList.toggle('go',st);b.setAttribute('aria-label',st?'Start: let the arm move again':'Emergency stop');}
+$('stop').onclick=()=>{if(userStopped&&LIVE){userStopped=false;stopBtnShow();S.fx('level');tip('<strong>Ready.</strong> Touch a stick or a move. The arm follows.');ensureReal();return;}doStop();};
+async function doStop(){if(show)stopMove();if(typeof S!=='undefined')S.fx('stop');userStopped=true;stopBtnShow();
  release();real=false;clearInterval(pressTimer);pressTimer=0;++epoch;busy=false;owner='';$('physicalReady').checked=$('startReady').checked=false;
  if(!LIVE){state.armed=state.active=false;state.commanded=null;state.activeSlot=-1;render();tip('<strong>Stopped.</strong> Practice paused. Hold a button to play again.');message('Stopped (practice).');return;}
  render();tip('<strong>Stopping…</strong> Switch the bench supply OFF if anything still moves.');
- try{apply(await raw('/api/stop',{}));tip('<strong>Stopped.</strong> Signals off. To cut servo power, switch the supply OFF.');message('Stop confirmed by the arm.');}catch(e){lose(e);}
+ try{apply(await raw('/api/stop',{}));tip('<strong>Stopped.</strong> Tap START when you want to move again.');message('Stop confirmed by the arm.');}catch(e){lose(e);}
 };
 $('reconnect').onclick=reconnect;
 $('helpBtn').onclick=()=>{release();$('helpDlg').showModal();};
@@ -684,7 +684,7 @@ const typing=()=>document.querySelector('dialog[open]')||/^(INPUT|SELECT|TEXTARE
 const keysDown=new Map(); // key code -> button it holds
 document.addEventListener('keydown',e=>{
  if(typing())return;
- if(e.code==='Space'||e.code==='Escape'){e.preventDefault();if(!e.repeat){release();$('stop').click();}return;}
+ if(e.code==='Space'||e.code==='Escape'){e.preventDefault();if(!e.repeat){release();doStop();}return;}
  const id=KEYS[e.code];if(!id)return;e.preventDefault();if(e.repeat||keysDown.has(e.code))return;
  const src=pad.querySelector(`[data-testid="${id}"]`),b=(document.body.classList.contains('drive')&&document.querySelector(`[data-testid="cab-${id}"]`))||src;if(!src||src.disabled)return;
  keysDown.set(e.code,b);hold(J.findIndex(j=>id.startsWith(j.key+'-')),Number(src.dataset.dir),b);
@@ -832,11 +832,11 @@ async function goFrame(f,tok){
  if(f.wait)await sleep(f.wait,tok);
 }
 async function playMove(k){
- stopMove();release();const m=MOVES[k],tok={k,alive:true,loop:1,real:real};show=tok;
+ stopMove();release();if(canAuto())await ensureReal();const m=MOVES[k],tok={k,alive:true,loop:1,real:real};show=tok;
  mgrid.querySelectorAll('.mtile').forEach((t,n)=>t.classList.toggle('on',n===k));
  S.play(SONG[MOVE_SONG[k]]||SONG.happy,beatFx);setLook(LOOK[MOVE_SONG[k]]);costumeLoop();
  $('npName').textContent=m.n;$('npLoop').textContent=m.once?'':'loop 1';$('nowPlay').classList.add('open');
- tip(real?`<strong>${m.n}.</strong> The real arm is doing it. Tap Stop to end.`:LIVE&&connected&&!state.firmwareLocked?`<strong>${m.n}</strong> on the picture only. Tap Real arm ON to make the arm do it.`:`<strong>${m.n}</strong> (practice picture).`);
+ tip(real?`<strong>${m.n}.</strong> The real arm is doing it. Tap Stop to end.`:LIVE&&connected&&!state.firmwareLocked?`<strong>${m.n}</strong> on the picture only. Connect the arm to make it do it.`:`<strong>${m.n}</strong> (practice picture).`);
  if(tok.real)for(let i=0;i<6;i++){const h=state.held&&state.held[i];if(h){const j=state.joints[i],s=j.reverse?-1:1,d=(h-j.start)*s;mv.cur[i]=d>=0?d/((j.high-j.start)||1)*1:d/((j.start-j.low)||1);}else mv.cur[i]=0;}
  for(const f of m.intro||[]){if(!tok.alive)break;await goFrame(f,tok);}
  while(tok.alive){for(const f of m.loop){if(!tok.alive||(tok.real&&!real))break;await goFrame(f,tok);}if(m.once||(tok.real&&!real))break;tok.loop++;S.fx('level');$('npLoop').textContent=`loop ${tok.loop}`;}
@@ -1077,7 +1077,7 @@ const US_DEG=.09; // 2000 µs is about 180°
 const calOk=()=>REMOTE&&LIVE&&real&&connected;
 function calSync(){for(let i=0;i<6;i++){const j=state.joints&&state.joints[i];const h=state.held&&state.held[i];CAL.p[i]=h||(j?j.start:1500);}}
 function calRender(){
- const ok=calOk();$('calNote').innerHTML=!REMOTE?'Calibrate works from the internet link.':ok?'Look at the real arm. Tap <b>◀ ▶</b> until the part is straight, then tap <b>Save</b>.':'First tap <b>Real arm ON</b>, then come back here.';
+ const ok=calOk();$('calNote').innerHTML=!REMOTE?'Calibrate works from the internet link.':ok?'Look at the real arm. Tap <b>◀ ▶</b> until the part is straight, then tap <b>Save</b>.':userStopped?'The arm is stopped. Tap <b>START</b>, then come back here.':'Connecting to the arm…';
  $('calAll').disabled=!ok||CAL.busy>=0;$('calBig').setAttribute('aria-pressed',String(CAL.big));$('calBig').textContent=CAL.big?'Big steps (5°)':'Small steps (1°)';
  $('calRows').querySelectorAll('.crow').forEach((r,i)=>{const j=state.joints&&state.joints[i];const can=ok&&j&&j.verified&&CAL.busy<0;
   const d=j?Math.round((CAL.p[i]-j.start)*US_DEG):0;r.querySelector('.off').textContent=d===0?'middle':(d>0?'+':'')+d+'°';
@@ -1095,7 +1095,7 @@ $('calRows').addEventListener('click',e=>{const b=e.target.closest('button');if(
  if(b.classList.contains('save'))calSave(i);else calGo(i,CAL.p[i]+Number(b.dataset.d)*(CAL.big?50:10));});
 $('calBig').onclick=()=>{CAL.big=!CAL.big;calRender();};
 $('calAll').onclick=async()=>{CAL.msg='Moving every part to its saved middle…';for(let i=0;i<6;i++){if(!calOk())break;if(state.joints[i].verified)await calGo(i,state.joints[i].start);}CAL.msg=calOk()?'All parts at their saved middle.':CAL.msg;calRender();};
-function tab(which){const cal=which==='cal';$('tabMoves').setAttribute('aria-selected',String(!cal));$('tabCal').setAttribute('aria-selected',String(cal));$('mgrid').hidden=cal;$('calib').hidden=!cal;$('movesHelp').hidden=cal;if(cal){if(show)stopMove();calSync();CAL.msg='';calRender();}}
+function tab(which){const cal=which==='cal';$('tabMoves').setAttribute('aria-selected',String(!cal));$('tabCal').setAttribute('aria-selected',String(cal));$('mgrid').hidden=cal;$('calib').hidden=!cal;$('movesHelp').hidden=cal;if(cal){if(show)stopMove();calSync();CAL.msg='';calRender();ensureReal().then(()=>{calSync();calRender();});}}
 $('tabMoves').onclick=()=>tab('moves');$('tabCal').onclick=()=>tab('cal');
 setInterval(()=>{if(!$('calib').hidden&&$('moves').classList.contains('open'))calRender();},600);
 
