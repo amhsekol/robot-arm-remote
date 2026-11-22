@@ -195,6 +195,11 @@ body.drive .side{display:flex}
 .nowplay{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 104px);background:oklch(15% .01 255 / .78);backdrop-filter:blur(6px);border-radius:999px;padding:6px 6px 6px 16px;font-size:var(--sm);font-weight:700;white-space:nowrap;align-items:center;gap:10px;box-shadow:inset 0 0 0 2px var(--c2)}
 .nowplay.open{display:flex}
 .nowplay button{min-height:36px;border:0;border-radius:999px;background:var(--c2);color:oklch(18% .02 85);font-weight:800;padding:0 14px}
+.lyric{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(max(18px,env(safe-area-inset-bottom)) + 156px);margin:0;max-width:94vw;text-align:center;font-size:clamp(1.1rem,4.6vw,1.7rem);font-weight:800;color:#fff;text-shadow:0 2px 10px #000,0 0 3px #000;pointer-events:none;line-height:1.25}
+.lyric:empty{display:none}
+.lyric b{color:#ffd34d;display:inline-block;transform:scale(1.18)}
+.mhead{grid-column:1/-1;margin:6px 2px 0;font-size:var(--sm);color:var(--muted);font-weight:700}
+.mtile.song i{color:#ffd34d}
 .nowplay .lp{color:var(--muted);font-weight:600;font-size:var(--xs)}
 .rotate{position:fixed;inset:0;z-index:8;background:var(--bg);place-items:center;text-align:center;padding:24px}
 .rotate>div{display:grid;gap:16px;justify-items:center;max-width:320px}
@@ -309,6 +314,7 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
  <div class="side l" id="sideL"></div>
  <div class="side r" id="sideR"></div>
  <button class="movesbtn" id="movesBtn" aria-haspopup="dialog">MOVES</button>
+ <p class="lyric" id="npLyric" aria-live="polite"></p>
  <div class="nowplay" id="nowPlay" role="status"><span>▶ <span id="npName"></span></span><span class="lp" id="npLoop"></span><button id="npStop">Stop</button></div>
 </div>
 <div class="stopbar"><button id="stop">STOP</button></div>
@@ -793,16 +799,176 @@ const MOVES=[
  {n:'Sleepy',intro:[F(0,.35,-.6,-.7,0,-.6)],loop:[F(_,.28,_,-.6,_,_,500),F(_,.4,_,-.75,_,_,700)]},
  {n:'Guard dog',loop:[F(-.7,.1,-.2,0,0,-1,1500),F(0,_,_,_,_,_,800),F(.7,_,_,_,_,_,1500),F(.2,-.2,.3,.2,0,1,300),F(_,_,_,_,_,-1,300)]}
 ];
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ---- animal shows: b = beat, p = pose (-1..1; h = mouth/claw: + open), d = glide length in beats ----
+const CLOSE={h:-.5},MOUTH=v=>({h:v});
+const CHAR={
+ 'Snake':{song:'snake',look:'snake',len:8,cues:[
+  {b:0,p:{t:-.3,w:.3,l:.3,b:.1},d:3.5},{b:0,p:CLOSE,d:.3},
+  {b:1,p:MOUTH(.4),d:.15,sfx:'flick'},{b:1.5,p:CLOSE,d:.15},{b:2,p:MOUTH(.4),d:.15,sfx:'flick'},{b:2.5,p:CLOSE,d:.15},
+  {b:4,p:{t:.3,w:-.3,l:.35,b:.05},d:3.5},{b:5,p:MOUTH(.4),d:.15,sfx:'flick'},{b:5.5,p:CLOSE,d:.15},
+  {b:6.25,p:{l:.45,b:-.15,w:.35},d:.6},
+  {b:7,p:{h:1,l:.2,b:.3,w:-.1},d:.25,sfx:'strike',shake:1,burst:'wiggle',n:14,glow:'#4dff9a'},{b:7.6,p:CLOSE,d:.3}]},
+ 'Guard dog':{song:'dog',look:'dog',len:8,cues:[
+  {b:0,p:{t:-.25,l:.3,w:.1},d:2},{b:0,p:MOUTH(.15),d:.2,sfx:'pant'},{b:.5,p:MOUTH(-.25),d:.2},{b:1,p:MOUTH(.15),d:.2,sfx:'pant'},{b:1.5,p:MOUTH(-.25),d:.2},
+  {b:2,p:{t:.25},d:2},{b:2,p:MOUTH(.15),d:.2,sfx:'pant'},{b:2.5,p:MOUTH(-.25),d:.2},{b:3,p:MOUTH(.15),d:.2,sfx:'pant'},{b:3.5,p:MOUTH(-.25),d:.2},
+  {b:4,p:{t:0,l:.4,w:.25,h:-.5},d:.4},
+  {b:4.5,p:{h:.9,w:.4},d:.12,sfx:'bark',shake:1,burst:'stars',n:6},{b:5.28,p:{h:-.4,w:.2},d:.15},{b:5.83,p:{h:.9,w:.4},d:.12,burst:'stars',n:6},{b:6.4,p:{h:-.5,w:.2},d:.2},
+  {b:7,p:{l:.25,w:0},d:1}]},
+ 'Peek-a-boo':{song:'boo',look:'ghost',len:8,cues:[
+  {b:0,p:{t:0,l:0,b:.45,w:-.5,h:-.6},d:1.5},
+  {b:2,p:{w:-.2},d:.4,say:'Peek a',voice:{pitch:1.6}},{b:2.5,p:{w:-.5},d:.3},
+  {b:3,p:{l:.55,b:-.3,w:.4,h:1},d:.2,say:'BOO!',voice:{pitch:1.9,rate:1.2},shake:1,burst:'stars',n:16,glow:'#ffd34d'},
+  {b:4.5,p:MOUTH(.5),d:.1,sfx:'giggle'},{b:4.75,p:MOUTH(.05),d:.1},{b:5,p:MOUTH(.5),d:.1},{b:5.25,p:MOUTH(.05),d:.1},{b:5.5,p:MOUTH(.5),d:.1},{b:5.75,p:MOUTH(-.2),d:.1},
+  {b:6.5,p:{l:.05,b:.4,w:-.45,h:-.6},d:1.2}]},
+ 'Swim':{song:'swim',look:'fish',len:4,cues:[
+  {b:0,p:{t:-.25,w:.3},d:2},{b:2,p:{t:.25,w:-.3},d:2},
+  {b:.5,p:MOUTH(.5),d:.15,sfx:'bubble',burst:'bubbles',n:5},{b:.8,p:MOUTH(-.3),d:.15},{b:1.5,p:MOUTH(.5),d:.15,sfx:'bubble',burst:'bubbles',n:5},{b:1.8,p:MOUTH(-.3),d:.15},
+  {b:2.5,p:MOUTH(.5),d:.15,sfx:'bubble',burst:'bubbles',n:5},{b:2.8,p:MOUTH(-.3),d:.15},{b:3.5,p:MOUTH(.5),d:.15,sfx:'bubble',burst:'bubbles',n:5},{b:3.8,p:MOUTH(-.3),d:.15}]},
+ 'Claw snap':{song:'snap',look:'crab',len:4,cues:[
+  {b:0,p:{t:-.25},d:.6},{b:2,p:{t:.25},d:.6},
+  {b:.5,p:MOUTH(.9),d:.2},{b:1,p:MOUTH(-.7),d:.1,sfx:'snap',shake:1},{b:1.5,p:MOUTH(.9),d:.2},{b:2,p:MOUTH(-.7),d:.1,sfx:'snap',shake:1},
+  {b:2.5,p:MOUTH(.9),d:.2},{b:3,p:MOUTH(-.7),d:.1,sfx:'snap',shake:1},{b:3.5,p:MOUTH(.9),d:.2}]},
+ 'Look around':{song:'mystery',look:'owl',len:4,cues:[
+  {b:0,p:{t:-.5,w:.1},d:.2},{b:1,p:MOUTH(.4),d:.12,sfx:'hoot'},{b:1.45,p:MOUTH(-.5),d:.15},
+  {b:2,p:{t:.5,w:-.05},d:.2},{b:3,p:MOUTH(.4),d:.12,sfx:'hoot'},{b:3.45,p:MOUTH(-.5),d:.15}]},
+ 'Sleepy':{song:'sleepy',look:'sleepy',len:8,cues:[
+  {b:0,p:{h:.6,l:.32,w:-.5},d:2.2,sfx:'snore'},{b:2.5,p:{h:-.4,l:.22,w:-.65},d:1.5,sfx:'whew'},
+  {b:4,p:{h:.6,l:.32,w:-.5},d:2.2,sfx:'snore'},{b:6.5,p:{h:-.4,l:.22,w:-.65},d:1.5,sfx:'whew'}]},
+ 'Rocket launch':{song:'rocket',look:'rocket',len:8,cues:[
+  {b:0,p:{t:0,l:-.1,b:.45,w:.5,h:-.6},d:1},{b:1,say:'3',sfx:'rumble',shake:1},{b:2,say:'2',sfx:'rumble',shake:1},{b:3,say:'1',sfx:'rumble',shake:1},
+  {b:4,p:{l:.65,b:-.35,w:.5,h:1},d:1.2,say:'Blast off!',sfx:'whoosh',shake:1,burst:'fire',n:20,glow:'#ffb02e'},{b:6,p:{l:.2,b:.1,w:0,h:.2},d:1.6}]},
+ 'Bow':{song:'royal',look:'king',len:8,cues:[
+  {b:0,p:{t:0,l:.5,b:-.2,w:.2,h:.2},d:1},{b:2,p:{l:-.05,b:.45,w:-.5},d:1.5},{b:3,p:MOUTH(.6),d:.15,say:'Thank you!',voice:{pitch:1.3}},{b:3.6,p:MOUTH(.1),d:.2},{b:5,p:{l:.5,b:-.2,w:.2},d:1.5}]}
+};
+// ---- sing-along songs: note/beats/word/pose[!sound] ----
+const SONGS=[
+ {n:'Twinkle Twinkle',kid:1,bpm:100,inst:'box',look:'star',txt:`C4/1/Twin-/o+L C4/1/kle/c G4/1/twin-/o+R G4/1/kle/c A4/1/lit-/big+C A4/1/tle/lit G4/2/star/hi+o |
+F4/1/How/up+c F4/1/I/dn E4/1/won-/up E4/1/der/dn D4/1/what/L D4/1/you/R C4/2/are/mid+C+o |
+G4/1/Up/hi+wu G4/1/a-/hi F4/1/bove/hi+wd F4/1/the/mid E4/1/world/LL E4/1/so/RR D4/2/high/hi+C |
+G4/1/Like/o G4/1/a/c F4/1/dia-/o F4/1/mond/c E4/1/in/o+L E4/1/the/c+R D4/2/sky/hi+o+C |
+C4/1/Twin-/o+L C4/1/kle/c G4/1/twin-/o+R G4/1/kle/c A4/1/lit-/big+C A4/1/tle/lit G4/2/star/hi+o |
+F4/1/How/up+c F4/1/I/dn E4/1/won-/up E4/1/der/dn D4/1/what/L D4/1/you/R C4/2/are/bow+C+c`},
+ {n:'Baa Baa Black Sheep',kid:1,bpm:104,inst:'box',look:'sheep',txt:`C4/1/Baa/nd+o!bleat C4/1/baa/nu+c!bleat G4/1/black/L G4/1/sheep/R A4/.5/have/o B4/.5/you/c C5/.5/a/o A4/.5/ny/c G4/2/wool?/hi+C+o |
+F4/1/Yes/nd F4/1/sir/nu E4/1/yes/nd E4/1/sir/nu D4/1/three/o D4/1/bags/c C4/2/full!/big+up |
+G4/1/One/L G4/.5/for/o G4/.5/the/c F4/1/mas-/up F4/1/ter/dn E4/1/one/R E4/.5/for/o E4/.5/the/c D4/2/dame/bow |
+G4/1/One/C G4/.5/for/o G4/.5/the/c F4/.5/lit-/big F4/.5/tle/lit F4/1/boy/up E4/1/who/dn E4/.5/lives/L E4/.5/down/R D4/1/the/C D4/1/lane/mid |
+C4/1/Baa/nd+o!bleat C4/1/baa/nu+c!bleat G4/1/black/L G4/1/sheep/R A4/.5/have/o B4/.5/you/c C5/.5/a/o A4/.5/ny/c G4/2/wool?/hi+C+o |
+F4/1/Yes/nd F4/1/sir/nu E4/1/yes/nd E4/1/sir/nu D4/1/three/o D4/1/bags/c C4/2/full!/bow+c`},
+ {n:'Johny Johny Yes Papa',kid:1,bpm:108,inst:'piano',look:'smiley',txt:`G4/1/Jo-/L+wu E4/1/hny/wd G4/1/Jo-/R+wu E4/1/hny/wd |
+G4/1/Yes/nd+C G4/1/Pa-/nu E4/2/pa/nd+o |
+A4/1/Eat-/up+o A4/1/ing/c G4/1/su-/o G4/1/gar?/c |
+E4/1/No/L E4/1/Pa-/R C4/2/pa/C+c |
+G4/1/Tell-/xL E4/1/ing/xR G4/2/lies?/x0 |
+E4/1/No/L E4/1/Pa-/R C4/2/pa/C |
+C5/1/O-/hi+big C5/1/pen/o A4/1/your/big A4/1/mouth!/o |
+G4/1/Ha/up+c!laugh E4/1/ha/dn+o G4/2/ha!/up+c`},
+ {n:'Row Your Boat',kid:1,bpm:100,inst:'box',look:'fish',txt:`C4/1.5/Row/row1 C4/1.5/row/row2 C4/1/row/row1 D4/.5/your/_ E4/1.5/boat/row2 |
+E4/1/gent-/L D4/.5/ly/_ E4/1/down/R F4/.5/the/_ G4/3/stream/C+mid |
+C5/.5/Mer-/o+xL C5/.5/ri-/c C5/.5/ly/o G4/.5/mer-/c+xR G4/.5/ri-/o G4/.5/ly/c E4/.5/mer-/o+xL E4/.5/ri-/c E4/.5/ly/o C4/.5/mer-/c+xR C4/.5/ri-/o C4/.5/ly/c+x0 |
+G4/1/Life/up F4/.5/is/_ E4/1/but/dn D4/.5/a/_ C4/3/dream/lo+c`},
+ {n:'Wheels on the Bus',kid:1,bpm:116,inst:'piano',look:'smiley',txt:`C4/1/The/_ F4/1/wheels/C+o F4/.5/on/_ F4/.5/the/_ F4/1/bus/c!honk A4/1/go/up C5/1/round/L+hi A4/1/and/C F4/2/round/R+dn |
+G4/1/round/L E4/1/and/C C4/2/round/R |
+C5/1/round/L+hi A4/1/and/C F4/2/round/R+dn |
+C4/1/The/_ F4/1/wheels/C+o F4/.5/on/_ F4/.5/the/_ F4/1/bus/c!honk A4/1/go/up C5/1/round/L+hi A4/1/and/C F4/1/round/R+dn |
+G4/1/all/mid C4/1/through/L C4/1/the/R F4/3/town!/home+o`},
+ {n:'Happy Birthday',bpm:100,inst:'piano',look:'king',txt:`G4/.75/Hap-/o G4/.25/py/c A4/1/birth-/L G4/1/day/R C5/1/to/up B4/2/you/hi+o |
+G4/.75/Hap-/c G4/.25/py/o A4/1/birth-/R G4/1/day/L D5/1/to/up C5/2/you/hi+c |
+G4/.75/Hap-/o G4/.25/py/c G5/1/birth-/hi+big E5/1/day/up C5/1/dear/L B4/1/Ro-/R A4/2/bo/C+o |
+F5/.75/Hap-/c F5/.25/py/o E5/1/birth-/L C5/1/day/R D5/1/to/up C5/3/you!/bow+big`},
+ {n:'Jingle Bells',bpm:126,inst:'bell',look:'disco',txt:`E4/1/Jin-/o!jingle E4/1/gle/c!jingle E4/2/bells/L+o!jingle |
+E4/1/Jin-/c!jingle E4/1/gle/o!jingle E4/2/bells/R+c!jingle |
+E4/1/Jin-/C+o G4/1/gle/c C4/1.5/all/dn D4/.5/the/_ E4/4/way/hi+big!jingle |
+F4/1/Oh/L F4/1/what/R F4/1.5/fun/L F4/.5/it/_ F4/1/is/R E4/1/to/L E4/1/ride/R E4/.5/in/_ E4/.5/a/_ E4/1/one/C D4/1/horse/up D4/1/o-/dn E4/1/pen/up D4/2/sleigh/L+o G4/2/Hey!/hi+big!jingle |
+E4/1/Jin-/o!jingle E4/1/gle/c!jingle E4/2/bells/L+o!jingle |
+E4/1/Jin-/c!jingle E4/1/gle/o!jingle E4/2/bells/R+c!jingle |
+E4/1/Jin-/C+o G4/1/gle/c C4/1.5/all/dn D4/.5/the/_ E4/4/way/hi+big!jingle |
+F4/1/Oh/L F4/1/what/R F4/1.5/fun/L F4/.5/it/_ F4/1/is/R E4/1/to/L E4/1/ride/R E4/.5/in/_ E4/.5/a/_ G4/1/one/up G4/1/horse/dn F4/1/o-/up D4/1/pen/dn C4/4/sleigh/bow+c`},
+ {n:'Ode to Joy',bpm:104,inst:'piano',look:'king',txt:`E4/1/_/dn+wd E4/1/_/L F4/1/_/R G4/1/_/up+wu G4/1/_/dn+wd F4/1/_/L E4/1/_/R D4/1/_/up+wu C4/1/_/dn+wd C4/1/_/L D4/1/_/R E4/1/_/up+wu E4/1.5/_/hi+big D4/.5/_/_ D4/2/_/mid+c |
+E4/1/_/dn+wd E4/1/_/L F4/1/_/R G4/1/_/up+wu G4/1/_/dn+wd F4/1/_/L E4/1/_/R D4/1/_/up+wu C4/1/_/dn+wd C4/1/_/L D4/1/_/R E4/1/_/up+wu D4/1.5/_/hi+o C4/.5/_/_ C4/2/_/bow+c`},
+ {n:'Für Elise',bpm:72,inst:'piano',look:'sunny',txt:`E5/.5/_/nu+o D#5/.5/_/nd+half E5/.5/_/nu+o D#5/.5/_/nd+half E5/.5/_/nu+o B4/.5/_/L D5/.5/_/C C5/.5/_/R A4/1.5/_/dn+o |
+C4/.5/_/lo E4/.5/_/dn A4/.5/_/mid B4/1.5/_/up+L+half |
+E4/.5/_/dn G#4/.5/_/mid B4/.5/_/up C5/1.5/_/hi+R+o |
+E4/.5/_/mid E5/.5/_/nu+o D#5/.5/_/nd+half E5/.5/_/nu+o D#5/.5/_/nd+half E5/.5/_/nu+o B4/.5/_/L D5/.5/_/C C5/.5/_/R A4/1.5/_/dn+o |
+C4/.5/_/lo E4/.5/_/dn A4/.5/_/mid B4/1.5/_/up+L+half |
+E4/.5/_/dn C5/.5/_/up B4/.5/_/mid A4/2/_/bow+C+c`},
+ {n:'Mountain King',bpm:120,accel:15,maxBpm:210,inst:'pizz',look:'owl',txt:`E4/.5/_/nd+L F#4/.5/_/nu G4/.5/_/nd A4/.5/_/nu B4/.5/_/nd G4/.5/_/nu B4/1/_/c+R |
+A#4/.5/_/nd+L F#4/.5/_/nu A#4/1/_/o+R |
+A4/.5/_/nd+L F4/.5/_/nu A4/1/_/c+R |
+E4/.5/_/nd+L F#4/.5/_/nu G4/.5/_/nd A4/.5/_/nu B4/.5/_/nd G4/.5/_/nu B4/.5/_/c E5/.5/_/o+C D5/.5/_/c B4/.5/_/o G4/.5/_/c B4/.5/_/o D5/2/_/hi+big`}
+];
+// ================= SHOWS: music + sound + picture + real arm on one clock =================
+// Every cue has a time on the audio clock. The sound plays at that exact time, the picture moves at
+// that time, and the real arm command leaves SHOW_LEAD seconds early to cover the internet delay.
+const SHOW_LEAD=.30;
+const JK={t:0,l:1,b:2,w:3,x:4,h:5};
+const PZ={o:{h:.9},c:{h:-.6},half:{h:.2},big:{h:1},lit:{h:-.35},
+ up:{l:.4,b:-.15},dn:{l:.08,b:.25},hi:{l:.6,b:-.35,w:.3},lo:{l:-.1,b:.4,w:-.3},mid:{l:.2,b:.05,w:0},
+ L:{t:-.3},R:{t:.3},C:{t:0},LL:{t:-.55},RR:{t:.55},wu:{w:.35},wd:{w:-.35},w0:{w:0},
+ xL:{x:-.6},xR:{x:.6},x0:{x:0},bow:{l:-.05,b:.45,w:-.5},row1:{l:.05,b:.45,w:-.25},row2:{l:.45,b:-.1,w:.3},
+ nu:{w:.2},nd:{w:-.2},home:{t:0,l:.2,b:.05,w:0,x:0,h:.2}};
+const pose=k=>{const o={};for(const p of (k||'').split('+'))if(PZ[p])Object.assign(o,PZ[p]);return o;};
+const NOTE=n=>{if(n==='r')return null;const m=n.match(/^([A-G])(#|b)?(\d)$/);return 12*(+m[3]+1)+{C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]]+(m[2]==='#'?1:m[2]==='b'?-1:0);};
+// song text: "C4/1/Twin/o+L ..." ; "|" ends a lyric line
+function parseSong(txt){const notes=[],cues=[];let line=[],lines=[];
+ for(const tok of txt.trim().split(/\s+/)){if(tok==='|'){lines.push(line);line=[];continue;}
+  const [n,b,w,p]=tok.split('/');const i=notes.length;notes.push([NOTE(n),Number(b)]);cues.push({p:pose(p),w:w&&w!=='_'?w:'',li:lines.length});line.push(w&&w!=='_'?w:'');}
+ if(line.length)lines.push(line);return {notes,cues,lines:lines.map(l=>l.filter(Boolean))};}
+// ---- picture glides ----
+const glides=new Map();
+function glideTo(p,dur){const t0=performance.now();for(const [k,v] of Object.entries(p)){const i=JK[k];const vv=Math.max(-CAP[i],Math.min(CAP[i],v));glides.set(i,{from:J[i].v,to:picFor(i,vv),t0,t1:t0+Math.max(60,dur*1000)});mv.cur[i]=vv;}}
+function showLoop(){if(!show)return;const n=performance.now();
+ for(const [i,g] of glides){const k=Math.min(1,(n-g.t0)/(g.t1-g.t0)),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;J[i].v=g.from+(g.to-g.from)*e;if(k>=1)glides.delete(i);}
+ draw();game();requestAnimationFrame(showLoop);}
+// ---- real arm ----
+function realPose(p,tok){if(!(tok.real&&real&&LIVE))return;for(const [k,v] of Object.entries(p)){const i=JK[k];if(!state.joints[i].verified)continue;
+ const vv=Math.max(-CAP[i],Math.min(CAP[i],v)),pu=pulseFor(i,vv);if(tok.sent[i]===pu)continue;tok.sent[i]=pu;
+ raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}}
+// ---- one cue at audio time T ----
+function cueAt(c,T,B,tok){const ms=Math.max(0,(T-S.clock())*1000);
+ if(c.sfx)S.fxAt(c.sfx,T);if(c.say)S.sayAt(c.say,T,c.voice);
+ const p=c.p||{};
+ setTimeout(()=>{if(!tok.alive)return;glideTo(p,(c.d||.25)*B);if(c.burst)FX.burst(c.burst,c.n||8);if(c.glow)FX.pulse(c.glow);if(c.shake)shake();if(c.pop)mouthPop=performance.now();if(c.lyric)c.lyric();},ms);
+ if(Object.keys(p).length)setTimeout(()=>{if(tok.alive)realPose(p,tok);},Math.max(0,ms-SHOW_LEAD*1000));}
+function showStart(k){stopMove();release();const m=MOVES[k],tok={k,alive:true,loop:1,real:real,sent:[]};show=tok;glides.clear();
+ mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
+ $('npName').textContent=m.n;$('npLoop').textContent='';$('nowPlay').classList.add('open');$('npLyric').innerHTML='';
+ setLook(m.look||'');if(tok.real&&real&&LIVE)raw('/api/speed',{revision:state.revision,owner,level:4}).catch(()=>{});
+ tip(tok.real?`<strong>${m.n}.</strong> The real arm is performing. STOP ends it.`:`<strong>${m.n}</strong> (picture).`);
+ requestAnimationFrame(showLoop);return tok;}
+function showEnd(tok){if(tok.real&&real&&LIVE)sendSpeed();}
+// Character shows: cues on a beat grid over the move's own music
+async function playChar(k){if(canAuto())await ensureReal();const m=MOVES[k],tok=showStart(k);
+ S.play({...SONG[m.song],fx:null,nohiss:true},info=>{if(show===tok&&(info.kick||info.beat))FX.pulse();});const T0=S.t0(),B=60/SONG[m.song].bpm;let i=0,loop=0;
+ const pump=()=>{if(!tok.alive){showEnd(tok);return;}const h=S.clock()+.7;
+  while(true){const c=m.cues[i],T=T0+(loop*m.len+c.b)*B;if(T>h)break;cueAt(c,T,B,tok);if(++i>=m.cues.length){i=0;loop++;const L=loop;setTimeout(()=>{if(tok.alive){tok.loop=L+1;$('npLoop').textContent=`loop ${L+1}`;}},Math.max(0,(T0+loop*m.len*B-S.clock())*1000));}}
+  setTimeout(pump,120);};pump();}
+// Sing-along songs: each sung word is a cue; the melody player drives the clock
+async function playSong(k){if(canAuto())await ensureReal();const m=MOVES[k],tok=showStart(k);const sg=m.sing;
+ const lyr=(li,wi)=>()=>{const L=sg.lines[li]||[];$('npLyric').innerHTML=L.map((w,n)=>{const x=esc(w.replace(/-$/,''));return (n===wi?`<b>${x}</b>`:x)+(w.endsWith('-')?'':' ');}).join('');};
+ const wIndex=[];{let cnt={};sg.cues.forEach((c,n)=>{if(!c.w){wIndex.push(-1);return;}cnt[c.li]=(cnt[c.li]||0);wIndex.push(cnt[c.li]++);});}
+ S.melody(sg,(i,T,d,loop,B)=>{if(!tok.alive)return;const c=sg.cues[i];
+  cueAt({...c,d:Math.min(d/B*.8,.6),burst:c.p.h!==undefined?'stars':null,n:4,lyric:c.w?lyr(c.li,wIndex[i]):null},T,B,tok);
+  if(i===0&&loop>0)setTimeout(()=>{if(tok.alive)$('npLoop').textContent=`loop ${loop+1}`;},Math.max(0,(T-S.clock())*1000));});
+ const wait=()=>{if(!tok.alive){showEnd(tok);return;}setTimeout(wait,300);};wait();}
+
+for(const [name,c] of Object.entries(CHAR)){const m=MOVES.find(x=>x.n===name);if(m)Object.assign(m,c);}
+const N_BUILTIN=MOVES.length;
+for(const sg of SONGS)MOVES.push({n:sg.n,kid:sg.kid,look:sg.look,sing:{...parseSong(sg.txt),bpm:sg.bpm,inst:sg.inst,accel:sg.accel,maxBpm:sg.maxBpm}});
 const RATE=[0,50,100,200,350]; // µs per second for each speed level (firmware steps × 50 ticks)
 const mgrid=$('mgrid');
-MOVES.forEach((m,k)=>{
- const used=J.map((_j,i)=>[...(m.intro||[]),...m.loop].some(f=>f.v[i]!==null&&f.v[i]!==undefined));
- const t=document.createElement('button');t.className='mtile';t.dataset.testid='move-'+k;
- t.innerHTML=`<i>${k+1}</i><b>${m.n}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
- t.setAttribute('aria-label',`${m.n}. ${m.once?'Goes once.':'Repeats until Stop.'}`);
+function addTile(m,k){
+ const fr=m.cues?m.cues.map(c=>c.p||{}):m.sing?m.sing.cues.map(c=>c.p):[...(m.intro||[]),...m.loop].map(f=>Object.fromEntries(f.v.map((v,i)=>[Object.keys(JK)[i],v]).filter(e=>e[1]!==null&&e[1]!==undefined)));
+ const used=J.map((_j,i)=>fr.some(p=>p[Object.keys(JK)[i]]!==undefined));
+ const t=document.createElement('button');t.className='mtile'+(m.sing?' song':m.cues?' char':'');t.dataset.testid='move-'+k;t.dataset.k=k;
+ t.innerHTML=`<i>${m.sing?'♪':k+1}</i><b>${esc(m.n)}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
+ t.setAttribute('aria-label',`${m.n}. ${m.sing?'Sing-along song.':m.once?'Goes once.':'Repeats until Stop.'}`);
  t.onclick=()=>{closeMoves();if(show&&show.k===k){stopMove();return;}playMove(k);};
- mgrid.append(t);
-});
+ mgrid.append(t);return t;}
+const mhead=txt=>{const h=document.createElement('h3');h.className='mhead';h.textContent=txt;mgrid.append(h);};
+mhead('Moves');MOVES.forEach((m,k)=>{if(k<N_BUILTIN)addTile(m,k);});
+mhead('Kids songs');MOVES.forEach((m,k)=>{if(m.sing&&m.kid)addTile(m,k);});
+mhead('Famous tunes');MOVES.forEach((m,k)=>{if(m.sing&&!m.kid)addTile(m,k);});
 function openMoves(){release();S.fx('open');$('moves').classList.add('open');$('movesBtn').classList.add('on');const f=mgrid.querySelector('.mtile');f&&f.focus({preventScroll:true});}
 function closeMoves(){$('moves').classList.remove('open');$('movesBtn').classList.remove('on');}
 $('movesBtn').onclick=()=>$('moves').classList.contains('open')?closeMoves():openMoves();
@@ -832,8 +998,9 @@ async function goFrame(f,tok){
  if(f.wait)await sleep(f.wait,tok);
 }
 async function playMove(k){
+ if(MOVES[k].cues)return playChar(k);if(MOVES[k].sing)return playSong(k);
  stopMove();release();if(canAuto())await ensureReal();const m=MOVES[k],tok={k,alive:true,loop:1,real:real};show=tok;
- mgrid.querySelectorAll('.mtile').forEach((t,n)=>t.classList.toggle('on',n===k));
+ mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
  S.play(SONG[MOVE_SONG[k]]||SONG.happy,beatFx);setLook(LOOK[MOVE_SONG[k]]);costumeLoop();
  $('npName').textContent=m.n;$('npLoop').textContent=m.once?'':'loop 1';$('nowPlay').classList.add('open');
  tip(real?`<strong>${m.n}.</strong> The real arm is doing it. Tap Stop to end.`:LIVE&&connected&&!state.firmwareLocked?`<strong>${m.n}</strong> on the picture only. Connect the arm to make it do it.`:`<strong>${m.n}</strong> (practice picture).`);
@@ -842,12 +1009,12 @@ async function playMove(k){
  while(tok.alive){for(const f of m.loop){if(!tok.alive||(tok.real&&!real))break;await goFrame(f,tok);}if(m.once||(tok.real&&!real))break;tok.loop++;S.fx('level');$('npLoop').textContent=`loop ${tok.loop}`;}
  if(show===tok){show=null;tok.alive=false;endMoveUi();if(m.once&&!tok.stopped)tip(`<strong>${m.n}</strong> done.`);}
 }
-function endMoveUi(){S.stop();setLook('');$('nowPlay').classList.remove('open');mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.remove('on'));}
-function stopMove(){const tok=show;if(!tok)return;tok.alive=false;tok.stopped=true;show=null;endMoveUi();
+function endMoveUi(){S.stop();$('npLyric').innerHTML='';setLook('');$('nowPlay').classList.remove('open');mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.remove('on'));}
+function stopMove(){const tok=show;if(!tok)return;tok.alive=false;tok.stopped=true;show=null;glides.clear();endMoveUi();
  // Freeze every gliding joint where it is: a zero press ends the glide on the arm.
  if(tok.real&&real&&LIVE)for(let i=0;i<6;i++)if(state.joints[i].verified&&state.held&&state.held[i])raw('/api/press',{revision:state.revision,owner,slot:i,direction:0}).catch(()=>{});}
 (()=>{let ver='';const chk=()=>fetch('build.txt',{cache:'no-store'}).then(r=>r.ok?r.text():'').then(v=>{v=v.trim();if(!v)return;if(ver&&v!==ver&&!real&&!show&&!holds.size)location.reload();ver=v;}).catch(()=>{});chk();setInterval(chk,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk();});})();
-window.__moves={MOVES,playMove,stopMove,get show(){return show}};
+window.__moves={MOVES,playMove,stopMove,J,get show(){return show}};
 // ---------- sound, music and screen effects ----------
 // Everything is made live with Web Audio (no sound files). Each move has its own little song.
 const S=(()=>{
@@ -894,7 +1061,18 @@ const S=(()=>{
   rumble:t=>noise(t,.5,{type:'lowpass',f:180,q:3,vol:.35}),
   ratchet:t=>{for(let k=0;k<4;k++)noise(t+k*.045,.025,{type:'bandpass',f:3500,q:3,vol:.2});},
   pour:t=>noise(t,.9,{type:'bandpass',f:900,f2:400,q:2,vol:.12}),
-  wave:t=>tone(hz(84),t,.2,{type:'sine',vol:.1,glide:hz(88)})
+  wave:t=>tone(hz(84),t,.2,{type:'sine',vol:.1,glide:hz(88)}),
+  // show sounds: each starts exactly when the mouth opens
+  flick:t=>{noise(t,.28,{type:'bandpass',f:6500,f2:4200,q:3,vol:.42});noise(t,.2,{type:'highpass',f:8000,vol:.12});},
+  strike:t=>{sample('rattle',t,.9);noise(t,.7,{type:'bandpass',f:5200,f2:3000,q:2,vol:.7});noise(t,.5,{type:'highpass',f:7000,vol:.25});},
+  pant:t=>noise(t,.18,{type:'bandpass',f:1400,f2:900,q:1.2,vol:.18}),
+  giggle:t=>[0,.25,.5].forEach((d,k)=>{tone(hz(79+k*2),t+d,.14,{type:'sine',vol:.16,glide:hz(84+k*2)});tone(hz(91+k*2),t+d,.1,{type:'sine',vol:.05});}),
+  hoot:t=>{tone(hz(62),t,.22,{type:'sine',vol:.28,glide:hz(60),attack:.04});tone(hz(62),t+.3,.5,{type:'sine',vol:.28,glide:hz(58),attack:.05});noise(t,.6,{type:'lowpass',f:500,vol:.05});},
+  whew:t=>{tone(hz(86),t,1.2,{type:'sine',vol:.08,glide:hz(74),attack:.2});noise(t,1.2,{type:'lowpass',f:900,f2:300,vol:.12});},
+  bleat:t=>{if(!ctx)return;const o=ctx.createOscillator(),l=ctx.createOscillator(),lg=ctx.createGain(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=330;l.frequency.value=22;lg.gain.value=28;l.connect(lg);lg.connect(o.frequency);f.type='bandpass';f.frequency.value=1100;f.Q.value=1.5;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.3,t+.04);g.gain.setValueAtTime(.3,t+.35);g.gain.exponentialRampToValueAtTime(.001,t+.6);o.connect(f);f.connect(g);g.connect(master);o.start(t);l.start(t);o.stop(t+.65);l.stop(t+.65);},
+  honk:t=>{tone(hz(60),t,.22,{type:'square',vol:.1});tone(hz(64),t,.22,{type:'square',vol:.08});tone(hz(60),t+.28,.3,{type:'square',vol:.1});tone(hz(64),t+.28,.3,{type:'square',vol:.08});},
+  jingle:t=>{for(let k=0;k<5;k++){noise(t+k*.03,.06,{type:'bandpass',f:7000+k*400,q:6,vol:.22});tone(4200+k*300,t+k*.03,.12,{type:'sine',vol:.03});}},
+  laugh:t=>[0,.18,.36].forEach(d=>{tone(hz(64),t+d,.12,{type:'sawtooth',vol:.08,glide:hz(60)});noise(t+d,.1,{type:'bandpass',f:1200,vol:.1});})
  };
  function fx(name,delay=0){if(!on)return;unlock();if(!ctx||!SFX[name])return;SFX[name](now()+.01+delay);}
  // motor hum while joints move (picture or real arm)
@@ -914,7 +1092,7 @@ const S=(()=>{
   mix.connect(bp);bp.connect(bp2);bp2.connect(lp);lp.connect(g);g.gain.value=vol;g.connect(master);
   lfo.frequency.value=5.6;ld.gain.value=f*.012;lfo.connect(ld);ld.connect(o1.frequency);ld.connect(o2.frequency);
   o1.start();o2.start();lfo.start();return {o1,o2,g,ld,lfo,stop:t=>{g.gain.setTargetAtTime(0,t,.05);[o1,o2,lfo].forEach(o=>o.stop(t+.3));}};}
- function startPungi(th,cb){const t0=now()+.08,root=hz(th.root||62);
+ function startPungi(th,cb){const t0=songT0||now()+.08,root=hz(th.root||62);
   const drone=reed(root,0),lead=reed(root*Math.pow(2,7/12),0);
   drone.g.gain.setTargetAtTime(.035,t0,.3);
   // breath noise that follows the lead
@@ -932,15 +1110,15 @@ const S=(()=>{
    if(c==='D'){tone(110,t,.35,{type:'sine',vol:.35,glide:70});noise(t,.05,{type:'lowpass',f:400,vol:.15});}
    if(c==='n')noise(t,.07,{type:'bandpass',f:2800,q:3,vol:.16});
    if(c==='t')noise(t,.04,{type:'bandpass',f:4200,q:4,vol:.12});
-   const hissNow=s===8||(s===0&&pg.b>0);if(hissNow)SFX.hiss(t);
+   const hissNow=!pg.th.nohiss&&(s===8||(s===0&&pg.b>0));if(hissNow)SFX.hiss(t);
    if(pg.cb&&s%2===0){const ms=Math.max(0,(t-now())*1000),info={step:s,beat:true,kick:c==='D',fx:hissNow};setTimeout(()=>pg&&pg.cb&&pg.cb(info),ms);}
    pg.beatT+=half;pg.b++;}}
  function stopPungi(){if(!pg)return;clearInterval(pg.timer);const t=now();pg.drone.stop(t);pg.lead.stop(t);pg.bg.gain.setTargetAtTime(0,t,.05);pg.bs.stop(t+.3);pg=null;}
  // little step sequencer: 16 steps per bar
  const SC={maj:[0,2,4,5,7,9,11,12,14,16],min:[0,2,3,5,7,8,10,12,14,15],pen:[0,2,4,7,9,12,14,16,19,21],blu:[0,3,5,6,7,10,12,15,17,18],hij:[0,1,4,5,7,8,10,12,13,16]};
  let song=null,timer=0,stepN=0,nextT=0,onBeat=null;
- function play(th,cb){stop();if(!on)return;unlock();if(!ctx)return;if(th.pungi){startPungi(th,cb);return;}song=th;onBeat=cb;stepN=0;nextT=now()+.06;timer=setInterval(pump,25);}
- function stop(){clearInterval(timer);timer=0;song=null;stopPungi();}
+ function play(th,cb){stop();unlock();songT0=now()+.08;if(!on||!ctx)return;if(th.pungi){startPungi(th,cb);return;}song=th;onBeat=cb;stepN=0;nextT=songT0;timer=setInterval(pump,25);}
+ function stop(){clearInterval(timer);timer=0;song=null;stopPungi();stopMel();}
  function pump(){if(!song||!ctx)return;const th=song,sp=60/th.bpm/4;
   while(nextT<now()+.12){const s=stepN%16,t=nextT,sc=SC[th.sc||'maj'];
    const at=(str,k=s)=>str&&str[k%str.length]==='x';const deg=(str,k=s)=>{const c=str&&str[k%str.length];return c&&c!=='.'?Number(c):null;};
@@ -952,8 +1130,34 @@ const S=(()=>{
    if(onBeat&&(beat||hit)){const d=Math.max(0,(t-now())*1000);const info={step:s,beat,kick:at(th.k),fx:at(th.fxp)};setTimeout(()=>onBeat&&onBeat(info),d);}
    nextT+=sp;stepN++;}
  }
+ // ---- shared clock for shows: music, sounds, picture and real arm all use these times ----
+ let songT0=0;
+ const clock=()=>now();
+ function fxAt(name,T){if(!on||!ctx||!SFX[name])return;SFX[name](Math.max(now()+.005,T));}
+ function sayAt(text,T,o){say(text,T,o);}
+ // melody player for sing-along songs (notes: [midi|null, beats]); calls onNote(i,T,dur,loop) ahead of time
+ const PC_CHORD={0:0,4:0,7:0,5:5,9:5,2:7,11:7,8:4,3:0,10:5,6:2,1:0};
+ let mel=null;
+ const INST={
+  box:(f,t,d)=>{tone(f,t,Math.min(1.2,d*1.6+.3),{type:'sine',vol:.22});tone(f*2,t,.35,{type:'sine',vol:.07});tone(f*3,t,.15,{type:'sine',vol:.03});},
+  bell:(f,t,d)=>{tone(f,t,.9,{type:'sine',vol:.2});tone(f*2.76,t,.4,{type:'sine',vol:.06});tone(f*5.4,t,.2,{type:'sine',vol:.03});},
+  piano:(f,t,d)=>{tone(f,t,Math.min(1.4,d+.4),{type:'triangle',vol:.22});tone(f*2,t,.3,{type:'sine',vol:.06});},
+  pizz:(f,t,d)=>{tone(f,t,Math.min(.25,d),{type:'square',vol:.06});tone(f,t,Math.min(.3,d+.05),{type:'triangle',vol:.16});}
+ };
+ function melody(song,onNote){stop();if(!ctx)return 0;const t0=now()+.15;songT0=t0;
+  mel={song,onNote,i:0,loop:0,t:t0,beatNext:t0,bpm:song.bpm,timer:0};mel.timer=setInterval(pumpMel,25);pumpMel();return t0;}
+ function pumpMel(){if(!mel||!ctx)return;const sg=mel.song,inst=INST[sg.inst||'box'];
+  while(mel.t<now()+.7){const [m,beats]=sg.notes[mel.i],B=60/mel.bpm,d=beats*B,t=mel.t;
+   if(m!==null&&on){inst(hz(m),t,d);
+    // simple accompaniment: bass on the chord of this note, soft beat
+    tone(hz(48+PC_CHORD[m%12]),t,Math.min(d,B)*.9,{type:'triangle',vol:.12});
+    if(sg.drum!==false){SFX.hat(t);if(beats>=1)SFX.kick(t);}}
+   mel.onNote&&mel.onNote(mel.i,t,d,mel.loop,B);
+   mel.t+=d;mel.i++;
+   if(mel.i>=sg.notes.length){mel.i=0;mel.loop++;if(sg.accel)mel.bpm=Math.min(sg.maxBpm||200,mel.bpm+sg.accel);mel.t+=B*(sg.gap||1);}}}
+ function stopMel(){if(!mel)return;clearInterval(mel.timer);mel=null;}
  function setOn(v){on=v;try{localStorage.setItem('armSound',v?'1':'0');}catch{}if(v)unlock();if(ctx)master.gain.setTargetAtTime(v?.8:0,now(),.05);if(!v)stop();}
- return {unlock,fx,motor,play,stop,setOn,get on(){return on},get playing(){return !!song}};
+ return {unlock,fx,motor,play,stop,setOn,clock,fxAt,sayAt,melody,t0:()=>songT0,get on(){return on},get playing(){return !!song}};
 })();
 // One song per move. k s h = drums, b = bass notes, l = tune (numbers are notes of the scale), fx = sound effect on fxp beats, p = picture effect.
 const SONG={
@@ -1019,7 +1223,7 @@ for(const ev of ['pointerdown','pointerup','touchend','click','keydown'])documen
 document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('button:not(.move)');if(b&&!b.disabled&&b.id!=='stop')S.fx('click');},{capture:true});
 let lastStars=0;setInterval(()=>{if(stars>lastStars){S.fx('star');FX.burst('stars',14);FX.pulse('#ffd34d');}lastStars=stars;},150);
 function soundBtn(){const b=$('sndBtn');b.setAttribute('aria-pressed',String(S.on));b.setAttribute('aria-label',S.on?'Sound on. Tap to mute.':'Sound off. Tap for sound.');b.innerHTML=S.on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';}
-$('sndBtn').onclick=()=>{S.setOn(!S.on);soundBtn();if(S.on){S.fx('level');if(show)S.play(SONG[MOVE_SONG[show.k]]||SONG.happy,beatFx);}};
+$('sndBtn').onclick=()=>{S.setOn(!S.on);soundBtn();if(S.on){S.fx('level');if(show){const m=MOVES[show.k];if(m.cues||m.sing)stopMove();else S.play(SONG[MOVE_SONG[show.k]]||SONG.happy,beatFx);}}};
 soundBtn();
 function beatFx(info){if(!show)return;if(info.fx)mouthPop=performance.now();const th=SONG[MOVE_SONG[show.k]]||SONG.happy;if(info.kick||info.beat)FX.pulse();FX.burst(th.p,info.fx?9:4);if(th.shake&&info.fx){shake();buzz(25);}}
 
@@ -1044,6 +1248,7 @@ const SCENES={
  ghost:'<rect width="360" height="206" fill="#2a1840" opacity=".35"/>',
  owl:'<rect width="360" height="206" fill="#0d1b12" opacity=".35"/><path d="M290 206V120q0-10 10-10h4q10 0 10 10v86" fill="#5a3b1f"/>',
  dog:'<path d="M250 200l8-4 30 0 8 4-8 4-30 0z" fill="#f3e3c3"/><circle cx="252" cy="196" r="4" fill="#f3e3c3"/><circle cx="252" cy="204" r="4" fill="#f3e3c3"/><circle cx="294" cy="196" r="4" fill="#f3e3c3"/><circle cx="294" cy="204" r="4" fill="#f3e3c3"/>',
+ star:'<rect width="360" height="206" fill="#0b1030" opacity=".55"/><g fill="#fff"><circle cx="40" cy="30" r="1.4"/><circle cx="120" cy="60" r="1"/><circle cx="210" cy="22" r="1.6"/><circle cx="300" cy="45" r="1.2"/><circle cx="260" cy="95" r="1"/><circle cx="330" cy="120" r="1.4"/></g>',sheep:'<path d="M0 196q90-14 180 0t180 0v10H0z" fill="#4caf50" opacity=".55"/>',
  cup:'',crab:'<path d="M0 206h360v24H0z" fill="#e8cf8f" opacity=".35"/>',smiley:'',cool:'',builder:''
 };
 // The claw is the mouth: the two jaws open and close with the hand (and pop open on a bark or hiss).
@@ -1053,7 +1258,7 @@ function costume(name,x,y,a,len,t,op){
  const w=Math.sin(t/120);if(performance.now()-mouthPop<260)op=Math.max(op,.9);
  const face=(skin,hx,mouthC='#7a1f1f',teeth=true)=>jaws(op,hx,`<path d="M${hx} -1h14q4 0 4 3H${hx}z" fill="${skin}"/>${teeth?`<path d="M${hx+4} 2l2 3 2-3M${hx+10} 2l2 3 2-3" fill="#fff"/>`:''}`,`<path d="M${hx} 1h13q3 0 3-3H${hx}z" fill="${skin}"/>`,`<ellipse cx="${hx+6}" cy="0" rx="${3+op*5}" ry="${.6+op*4}" fill="${mouthC}"/>`);
  switch(name){
-  case 'snake':{const fl=op>.35||Math.sin(t/90)>.4;return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
+  case 'snake':{const fl=op>.35||(!(show&&MOVES[show.k].cues)&&Math.sin(t/90)>.4);return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
    <path d="M10 0h${8+op*10}l4 -4M${18+op*10} 0l4 4" stroke="#e8343c" stroke-width="2" fill="none" opacity="${fl?1:0}"/>
    ${jaws(op,8,`<path d="M8 -6q14 -4 22 3l-22 3z" fill="#3fa34d" stroke="#1f5e2a" stroke-width="1.5"/><path d="M22 -1.5l1.5 5 1.5-5" fill="#fff"/><circle cx="27" cy="-2" r=".9" fill="#111"/>`,`<path d="M8 6q12 3 19-3l-19-3z" fill="#7fd08a" stroke="#1f5e2a" stroke-width="1.5"/>`,`<ellipse cx="14" cy="0" rx="${2+op*6}" ry="${.5+op*4}" fill="#5a0f1a"/>`)}`);}
   case 'dog':return at(x,y,a,`<circle cx="2" cy="0" r="13" fill="#c98a4b"/><ellipse cx="-2" cy="${-13+w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(-25 -2 -13)"/><ellipse cx="-2" cy="${13-w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(25 -2 13)"/>${eye(4,-6,2.6)}${eye(4,6,2.6)}
@@ -1073,6 +1278,8 @@ function costume(name,x,y,a,len,t,op){
   case 'radar':return at(x,y,a,`<path d="M10 -16q16 16 0 32" fill="#dfe4ec" stroke="#8b93a8" stroke-width="2"/><line x1="10" y1="0" x2="22" y2="0" stroke="#8b93a8" stroke-width="2"/><circle cx="22" cy="0" r="2.5" fill="#4dff9a"/>`);
   case 'digger':return at(x,y,a,jaws(op,2,`<path d="M2 -2h16l10 4 -4 4h-22z" fill="#ffc21a" stroke="#6b5200" stroke-width="2" transform="translate(0 -6)"/>`,`<path d="M2 2h16l6 4h-22z" fill="#e0a800" stroke="#6b5200" stroke-width="2"/><path d="M12 8l2 4M17 8l2 4M22 7l2 4" stroke="#6b5200" stroke-width="2"/>`));
   case 'builder':return at(x,y,a,`<rect x="0" y="-5" width="14" height="10" rx="3" fill="#ffb02e"/><rect x="14" y="-1.5" width="16" height="3" fill="#cfd6e6"/><path d="M30 -2l4 2-4 2z" fill="#cfd6e6"/>`);
+  case 'star':{const pts=[...Array(10)].map((_,i)=>{const r=i%2?7:15,a2=i*Math.PI/5;return `${(4+r*Math.cos(a2)).toFixed(1)},${(r*Math.sin(a2)).toFixed(1)}`;}).join(' ');return at(x,y,a,`<polygon points="${pts}" fill="#ffd34d" stroke="#e0a800" stroke-width="1.5"/>${eye(4,-4,2.2)}${eye(4,4,2.2)}${face('#ffd34d',12)}`);}
+  case 'sheep':return at(x,y,a,`<g fill="#f6f4ee">${[[-8,-8],[-8,8],[0,-11],[0,11],[-12,0],[2,0]].map(([cx,cy])=>`<circle cx="${cx}" cy="${cy}" r="7"/>`).join('')}</g><ellipse cx="9" cy="0" rx="8" ry="7" fill="#3a3330"/><ellipse cx="6" cy="-9" rx="3" ry="5" fill="#3a3330" transform="rotate(-30 6 -9)"/><ellipse cx="6" cy="9" rx="3" ry="5" fill="#3a3330" transform="rotate(30 6 9)"/>${eye(10,-3,2)}${eye(10,3,2)}${face('#3a3330',14,'#7a1f1f',false)}`);
   case 'cup':return at(x,y,a,`<path d="M4 -10h18l-3 20h-12z" fill="#ffffff" opacity=".9"/><path d="M7 -6h12l-2 12h-8z" fill="#ff7a2e"/>`);
  }
  return '';
