@@ -426,7 +426,7 @@ J.forEach((j,i)=>{
  pad.append(card);
 });
 function hold(i,dir,btn){if(show)stopMove();const was=holds.get(i);if(was){if(was.btn===btn&&was.dir===dir)return;was.btn.classList.remove('held');holds.delete(i);}
- if(typeof S!=='undefined'){S.fx('tick');if(i===5)S.fx(dir<0?'snap':'open');}const h={i,dir,btn};holds.set(i,h);held=h;btn.classList.add('held');tip(`${J[i].name}: ${btn.querySelector('small').textContent.toLowerCase()}…`);
+ const h={i,dir,btn};holds.set(i,h);held=h;btn.classList.add('held');tip(`${J[i].name}: ${btn.querySelector('small').textContent.toLowerCase()}…`);
  if(real)realHold(i,dir);if(holds.size===1){last=performance.now();requestAnimationFrame(step);}}
 function releaseJoint(i){const h=holds.get(i);if(!h)return;h.btn.classList.remove('held');holds.delete(i);held=holds.size?[...holds.values()].pop():null;if(real)realRelease(i);}
 function releaseBtn(b){for(const h of [...holds.values()])if(h.btn===b)releaseJoint(h.i);}
@@ -862,12 +862,12 @@ const S=(()=>{
  function noise(t,dur,o={}){if(!ctx)return;const {vol=.2,type='highpass',f=6000,q=1,f2=0}=o;const s=ctx.createBufferSource();s.buffer=nb;const b=ctx.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f2)b.frequency.exponentialRampToValueAtTime(f2,t+dur);b.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(b);b.connect(g);g.connect(master);s.start(t,Math.random()*.5);s.stop(t+dur+.05);}
  const hz=m=>440*Math.pow(2,(m-69)/12);
  const SFX={
-  click:t=>tone(880,t,.05,{type:'square',vol:.06}),
+  click:t=>tone(1200,t,.04,{type:'sine',vol:.05}),
   tick:t=>tone(1500,t,.03,{type:'square',vol:.04}),
   snap:t=>{noise(t,.07,{type:'bandpass',f:2600,q:2,vol:.5});tone(320,t,.09,{type:'square',vol:.1,glide:110});},
   open:t=>tone(260,t,.16,{type:'triangle',vol:.14,glide:620}),
-  stop:t=>{tone(240,t,.3,{type:'sawtooth',vol:.2,glide:50});noise(t,.12,{type:'lowpass',f:500,vol:.3});},
-  power:t=>{tone(160,t,.5,{type:'sawtooth',vol:.12,glide:900});tone(523,t+.42,.25,{vol:.16});tone(784,t+.52,.35,{vol:.16});},
+  stop:t=>{tone(hz(67),t,.25,{type:'sine',vol:.18});tone(hz(60),t+.12,.35,{type:'sine',vol:.18});},
+  power:t=>[0,4,7].forEach((n,k)=>tone(hz(72+n),t+k*.09,.35,{type:'sine',vol:.15})),
   star:t=>[0,4,7,12].forEach((n,k)=>tone(hz(76+n),t+k*.07,.3,{type:'sine',vol:.18})),
   level:t=>{tone(hz(72),t,.1,{type:'square',vol:.07});tone(hz(79),t+.08,.16,{type:'square',vol:.07});},
   drawer:t=>noise(t,.25,{type:'bandpass',f:600,f2:3000,q:1.5,vol:.12}),
@@ -892,11 +892,47 @@ const S=(()=>{
  // motor hum while joints move (picture or real arm)
  let motorLevel=0;
  function motor(level,pitch=1){if(!ctx||!on)return;const t=now();motorLevel=level;mg.gain.setTargetAtTime(Math.min(.09,level*.045),t,.06);mo.frequency.setTargetAtTime((58+level*9)*pitch,t,.08);mf.frequency.setTargetAtTime(300+level*160,t,.1);}
+ // Snake charmer pungi (been): reedy drone + winding melody with glides, soft dholak, and hisses.
+ const PUNGI=[[7,1],[8,.5],[7,.5],[5,.5],[4,.5],[5,1],[4,.5],[1,.5],[4,2],
+  [4,.5],[5,.5],[7,.5],[5,.5],[4,.5],[1,.5],[0,.5],[1,.5],[0,2],
+  [-1,.5],[0,.5],[1,.5],[0,.5],[-1,.5],[0,.5],[1,1],[4,.5],[1,.5],[0,2],
+  [12,1],[11,.5],[12,.5],[8,1],[7,.5],[8,.5],[7,.5],[5,.5],[4,1],[5,.5],[4,.5],[1,.5],[0,1.5]];
+ const DHOL='D.n.tDn.D.n.tDn.'; // keherwa feel: D = low dha, n = na, t = ti
+ let pg=null;
+ function reed(f,vol){const o1=ctx.createOscillator(),o2=ctx.createOscillator(),mix=ctx.createGain(),bp=ctx.createBiquadFilter(),bp2=ctx.createBiquadFilter(),lp=ctx.createBiquadFilter(),g=ctx.createGain(),lfo=ctx.createOscillator(),ld=ctx.createGain();
+  o1.type='sawtooth';o2.type='square';o1.frequency.value=f;o2.frequency.value=f;o2.detune.value=6;
+  const g2=ctx.createGain();g2.gain.value=.35;o1.connect(mix);o2.connect(g2);g2.connect(mix);
+  bp.type='peaking';bp.frequency.value=1250;bp.gain.value=9;bp.Q.value=1.4;bp2.type='peaking';bp2.frequency.value=2700;bp2.gain.value=6;bp2.Q.value=2;lp.type='lowpass';lp.frequency.value=4200;
+  mix.connect(bp);bp.connect(bp2);bp2.connect(lp);lp.connect(g);g.gain.value=vol;g.connect(master);
+  lfo.frequency.value=5.6;ld.gain.value=f*.012;lfo.connect(ld);ld.connect(o1.frequency);ld.connect(o2.frequency);
+  o1.start();o2.start();lfo.start();return {o1,o2,g,ld,lfo,stop:t=>{g.gain.setTargetAtTime(0,t,.05);[o1,o2,lfo].forEach(o=>o.stop(t+.3));}};}
+ function startPungi(th,cb){const t0=now()+.08,root=hz(th.root||62);
+  const drone=reed(root,0),lead=reed(root*Math.pow(2,7/12),0);
+  drone.g.gain.setTargetAtTime(.035,t0,.3);
+  // breath noise that follows the lead
+  const bs=ctx.createBufferSource();bs.buffer=nb;bs.loop=true;const bf=ctx.createBiquadFilter();bf.type='bandpass';bf.frequency.value=2200;bf.Q.value=1;const bg=ctx.createGain();bg.gain.value=0;bs.connect(bf);bf.connect(bg);bg.connect(master);bs.start();
+  pg={drone,lead,bs,bg,i:0,nextT:t0,beatT:t0,b:0,th,cb,root};pg.timer=setInterval(pumpPungi,25);}
+ function pumpPungi(){if(!pg||!ctx)return;const BEAT=60/(pg.th.bpm||92);
+  while(pg.nextT<now()+.15){const [n,len]=PUNGI[pg.i%PUNGI.length],t=pg.nextT,f=pg.root*Math.pow(2,n/12),d=len*BEAT;
+   const L=pg.lead;[L.o1,L.o2].forEach(o=>o.frequency.setTargetAtTime(f,t,len>=1?.06:.025)); // meend: slide into the note
+   L.ld.gain.setTargetAtTime(f*(len>=1?.022:.01),t+Math.min(.25,d*.4),.08); // wider shake on long notes
+   L.g.gain.setTargetAtTime(.11,t,.02);L.g.gain.setTargetAtTime(.075,t+d*.6,.08);
+   if(len>=2)L.g.gain.setTargetAtTime(.02,t+d-.08,.03); // breath at phrase end
+   pg.bg.gain.setTargetAtTime(.012,t,.03);
+   pg.nextT+=d;pg.i++;}
+  while(pg.beatT<now()+.15){const t=pg.beatT,s=pg.b%16,c=DHOL[s],half=BEAT/2;
+   if(c==='D'){tone(110,t,.35,{type:'sine',vol:.35,glide:70});noise(t,.05,{type:'lowpass',f:400,vol:.15});}
+   if(c==='n')noise(t,.07,{type:'bandpass',f:2800,q:3,vol:.16});
+   if(c==='t')noise(t,.04,{type:'bandpass',f:4200,q:4,vol:.12});
+   const hissNow=s===0&&pg.b%32===0&&pg.b>0;if(hissNow)SFX.hiss(t);
+   if(pg.cb&&s%2===0){const ms=Math.max(0,(t-now())*1000),info={step:s,beat:true,kick:c==='D',fx:hissNow};setTimeout(()=>pg&&pg.cb&&pg.cb(info),ms);}
+   pg.beatT+=half;pg.b++;}}
+ function stopPungi(){if(!pg)return;clearInterval(pg.timer);const t=now();pg.drone.stop(t);pg.lead.stop(t);pg.bg.gain.setTargetAtTime(0,t,.05);pg.bs.stop(t+.3);pg=null;}
  // little step sequencer: 16 steps per bar
  const SC={maj:[0,2,4,5,7,9,11,12,14,16],min:[0,2,3,5,7,8,10,12,14,15],pen:[0,2,4,7,9,12,14,16,19,21],blu:[0,3,5,6,7,10,12,15,17,18],hij:[0,1,4,5,7,8,10,12,13,16]};
  let song=null,timer=0,stepN=0,nextT=0,onBeat=null;
- function play(th,cb){stop();if(!on)return;unlock();if(!ctx)return;song=th;onBeat=cb;stepN=0;nextT=now()+.06;timer=setInterval(pump,25);}
- function stop(){clearInterval(timer);timer=0;song=null;}
+ function play(th,cb){stop();if(!on)return;unlock();if(!ctx)return;if(th.pungi){startPungi(th,cb);return;}song=th;onBeat=cb;stepN=0;nextT=now()+.06;timer=setInterval(pump,25);}
+ function stop(){clearInterval(timer);timer=0;song=null;stopPungi();}
  function pump(){if(!song||!ctx)return;const th=song,sp=60/th.bpm/4;
   while(nextT<now()+.12){const s=stepN%16,t=nextT,sc=SC[th.sc||'maj'];
    const at=(str,k=s)=>str&&str[k%str.length]==='x';const deg=(str,k=s)=>{const c=str&&str[k%str.length];return c&&c!=='.'?Number(c):null;};
@@ -927,7 +963,7 @@ const SONG={
  space:{bpm:100,root:62,sc:'pen',k:'x.......x.......',h:'x...x...x...x...',b:'0.......2.......',l:'0.4.7.4.0.4.7.9.',lt:'sine',p:'sparkle'},
  hammer:{bpm:100,root:50,sc:'min',k:'x...x...x...x...',b:'0...0...0...0...',fx:'clank',fxp:'x.......x.......',p:'sparks',shake:1},
  swim:{bpm:96,root:65,sc:'maj',h:'..x...x...x...x.',b:'0...4...5...4...',l:'7...4...5...2...',lt:'sine',sus:3,fx:'bubble',fxp:'..x...x..x...x..',p:'bubbles'},
- snake:{bpm:100,root:62,sc:'hij',k:'x.....x...x.....',h:'....x.......x...',b:'0.......0.......',l:'4.5.4.3.4...2.1.',l2:'1.2.1.0.1...2...',lt:'square',lv:.07,fx:'hiss',fxp:'x.......x.......',p:'wiggle'},
+ snake:{pungi:true,bpm:92,root:62,p:'wiggle'},
  boo:{bpm:110,root:57,sc:'min',k:'x...x...x...x...',l:'0...........7...',fx:'boing',fxp:'............x...',p:'stars'},
  rocket:{bpm:140,root:50,sc:'min',k:'x.x.x.x.x.x.x.x.',h:'xxxxxxxxxxxxxxxx',b:'0.0.1.1.2.2.3.3.',fx:'whoosh',fxp:'x...............',p:'flames'},
  sleepy:{bpm:60,root:60,sc:'maj',l:'7...4...2...0...',lt:'sine',lv:.1,sus:3,fx:'snore',fxp:'x...............',p:'zzz'},
@@ -971,7 +1007,6 @@ const FX=(()=>{
 })();
 function shake(){const st=$('stage');st.classList.remove('shake');void st.offsetWidth;st.classList.add('shake');}
 // motor hum follows what is moving
-setInterval(()=>{const lv=holds.size+(show&&mv.moving?1.5:0);S.motor(lv,SPEED_X[speed]+.5);},70);
 document.addEventListener('pointerdown',()=>S.unlock(),{capture:true});
 document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('button:not(.move)');if(b&&!b.disabled&&b.id!=='stop')S.fx('click');},{capture:true});
 let lastStars=0;setInterval(()=>{if(stars>lastStars){S.fx('star');FX.burst('stars',14);FX.pulse('#ffd34d');}lastStars=stars;},150);
@@ -1050,7 +1085,7 @@ function calRender(){
   r.classList.toggle('moved',!!j&&CAL.p[i]!==j.start);});
  $('calMsg').textContent=CAL.msg;}
 async function calGo(i,p){const j=state.joints[i];p=Math.round(Math.max(j.low+1,j.start-300,Math.min(j.high-1,j.start+300,p)));
- CAL.busy=i;calRender();try{await raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:p});CAL.p[i]=p;S.fx('tick');}catch(e){CAL.msg=e.message;S.fx('stop');}CAL.busy=-1;calRender();}
+ CAL.busy=i;calRender();try{await raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:p});CAL.p[i]=p;S.fx('click');}catch(e){CAL.msg=e.message;S.fx('stop');}CAL.busy=-1;calRender();}
 async function calSave(i){const p=CAL.p[i];CAL.busy=i;CAL.msg=`Saving ${J[i].name}…`;calRender();
  try{await rSend('c',i,p);const s=await rWait(x=>x.joints&&x.joints[i]&&x.joints[i].start===p,5000);apply(validate(s));CAL.msg=`${J[i].name}: new middle saved.`;S.fx('level');FX.pulse('#4dff9a');}
  catch(e){CAL.msg=`${J[i].name} was not saved. Try again.`;S.fx('stop');}
