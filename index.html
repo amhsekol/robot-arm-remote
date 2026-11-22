@@ -700,7 +700,7 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('keyup',e=>{const b=keysDown.get(e.code);if(!b)return;keysDown.delete(e.code);releaseBtn(b);});
 // ---------- live camera from the home laptop (internet link only) ----------
-let camOn=false;try{camOn=localStorage.getItem('camOn')==='1';}catch{}
+let camOn=true;try{if(localStorage.getItem('avReset')!=='1'){localStorage.removeItem('camOn');localStorage.removeItem('armSound');localStorage.setItem('avReset','1');}camOn=localStorage.getItem('camOn')!=='0';}catch{}
 function camBtnShow(){const b=$('camBtn');b.hidden=!REMOTE;b.setAttribute('aria-pressed',String(camOn));b.setAttribute('aria-label',camOn?'Camera on. Tap to hide it.':'Camera off. Tap to show the camera.');b.style.opacity=camOn?1:.55;}
 camBtnShow();$('camBtn').onclick=()=>{camOn=!camOn;try{localStorage.setItem('camOn',camOn?'1':'0');}catch{}location.reload();};
 if(REMOTE&&camOn){
