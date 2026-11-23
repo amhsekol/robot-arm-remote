@@ -193,6 +193,7 @@ body.drive .side{display:flex}
 .move-art{display:block;width:26px;height:26px}
 #npPic{display:grid;place-items:center;flex:none}
 #npPic .move-art{width:var(--move-art-size);height:var(--move-art-size)}
+#npPic canvas.move-art{image-rendering:pixelated;border-radius:16px}
 .mtile .dots{display:flex;gap:4px}.mtile .dots span{width:8px;height:8px;border-radius:50%;background:var(--c);opacity:.25}.mtile .dots span.u{opacity:1}
 .mtile.on{background:var(--c2);color:oklch(18% .02 85)}.mtile.on i{color:oklch(30% .03 85)}
 .mtile:active{transform:scale(.97)}
@@ -898,11 +899,11 @@ const MOVE_ART={
  'Figure eight':['#c8abff','M16 16c-3-4-4-7-8-7a7 7 0 0 0 0 14c4 0 5-3 8-7s4-7 8-7a7 7 0 0 1 0 14c-4 0-5-3-8-7z'],
  'Hammer':['#c1cfff','M5 26l10-10m-4-3 7-7 8 8-7 7zm7-7 2-2 8 8-2 2'],
  'Swim':['#68d6ff','',`<path d="M12 17 4 10v14z" fill="#fd8050"/><path d="M9 17c7-10 17-9 20 0-3 9-13 10-20 0Z" fill="#ffc35a"/><path d="M16 11q-3 6 0 12" stroke="#ff9045" stroke-width="2"/><circle cx="24" cy="15" r="1.8" fill="#213147"/><circle cx="28" cy="7" r="1.5" fill="#b8ecff"/>`],
- 'Snake':['#88ef4e','',`<path d="M17 16c1 5-4 4-8 4-6 0-7 7 0 7h15c5 0 5-5 1-5h-9" fill="none" stroke="#52cf28" stroke-width="4" stroke-linecap="round"/><path d="M6 25c.5 1 2 1.1 3 1.1h14" fill="none" stroke="#a9ef64" stroke-width="1.1" stroke-linecap="round"/><path d="M12 12c0-5 3-8 7-8s8 3 8 8c0 3-4 5-8 5s-7-2-7-5Z" fill="#78de32"/><path d="M15 13c0-2 3-3 5-3 3 0 5 1 5 3s-2 3-5 3-5-1-5-3Z" fill="#b5f56c"/><path d="M22 16v3l-1.4 1.4m1.4-1.4 1.4 1.4" stroke="#ff8297" stroke-width="1.2" fill="none" stroke-linecap="round"/><circle cx="17" cy="9" r="1.4" fill="#18260d"/><circle cx="23" cy="9" r="1.4" fill="#18260d"/>`,'#182411'],
+ 'Snake':['#88ef4e','',`<path d="M17 16c1 5-4 4-8 4-6 0-7 7 0 7h15c5 0 5-5 1-5h-9" fill="none" stroke="#52cf28" stroke-width="4" stroke-linecap="round"/><path d="M6 25c.5 1 2 1.1 3 1.1h14" fill="none" stroke="#a9ef64" stroke-width="1.1" stroke-linecap="round"/><path d="M12 12c0-5 3-8 7-8s8 3 8 8c0 3-4 5-8 5s-7-2-7-5Z" fill="#78de32"/><path d="M15 13c0-2 3-3 5-3 3 0 5 1 5 3s-2 3-5 3-5-1-5-3Z" fill="#b5f56c"/><circle cx="17" cy="9" r="1.4" fill="#18260d"/><circle cx="23" cy="9" r="1.4" fill="#18260d"/><path data-call="1" display="none" d="M22 16v3l-1.5 2m1.5-2 1.5 2" stroke="#ff8297" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,'#182411'],
  'Peek-a-boo':['#e1cfff','',`<path d="M6 27V14a10 10 0 0 1 20 0v13l-5-4-5 4-5-4z" fill="#e8dbff"/><ellipse cx="13" cy="14" rx="1.4" ry="2.4" fill="#392857"/><ellipse cx="20" cy="14" rx="1.4" ry="2.4" fill="#392857"/><ellipse cx="16.5" cy="20" rx="2" ry="1.5" fill="#9868dc"/>`],
  'Rocket launch':['#9eceff','',`<path d="M12 17 7 23l6-1m7-5 5 6-6-1" fill="#ff6d78"/><path d="M16 4c6 3 7 9 3 18h-6c-4-9-3-15 3-18" fill="#f5f7ff"/><path d="M16 4q4 2 5 6H11q1-4 5-6" fill="#ff6d78"/><circle cx="16" cy="14" r="2.9" fill="#62caff"/><path d="M13 23h6q0 5-3 6-3-1-3-6" fill="#ffd164"/>`],
  'Sleepy':['#d8bcff','M25 19A11 11 0 0 1 12 5a11 11 0 1 0 13 14ZM22 5v8m-4-4h8'],
- 'Guard dog':['#ffc388','',`<path d="M9 10 4 7 3 16l7 3m13-9 5-3 1 9-7 3" fill="#a87555"/><rect x="8" y="8" width="16" height="17" rx="8" fill="#eab288"/><ellipse cx="16" cy="21" rx="6" ry="4" fill="#ffdcba"/><path d="M13 19h6l-3 3z" fill="#492f30"/><circle cx="12.5" cy="15" r="1.3" fill="#492f30"/><circle cx="19.5" cy="15" r="1.3" fill="#492f30"/>`],
+ 'Guard dog':['#ffc388','',`<path d="M9 10 4 7 3 16l7 3m13-9 5-3 1 9-7 3" fill="#a87555"/><rect x="8" y="8" width="16" height="17" rx="8" fill="#eab288"/><ellipse cx="16" cy="21" rx="6" ry="4" fill="#ffdcba"/><path d="M13 19h6l-3 3z" fill="#492f30"/><circle cx="12.5" cy="15" r="1.3" fill="#492f30"/><circle cx="19.5" cy="15" r="1.3" fill="#492f30"/><g data-call="1" display="none"><ellipse cx="16" cy="24" rx="4.7" ry="3.7" fill="#492f30"/><ellipse cx="16" cy="26" rx="2.5" ry="1.3" fill="#fa8c8d"/><path d="m5 20-3 2m25-2 3 2m-25 2-2 3m24-3 2 3" stroke="#ffcf75" stroke-width="1.5" stroke-linecap="round"/></g>`],
  'Twinkle Twinkle':['#ffe178','M16 4l4 8 9 1-7 6 2 9-8-4-8 4 2-9-7-6 9-1Z'],
  'Baa Baa Black Sheep':['#e1d9f9','M8 12q1-8 7-5 5-4 9 3 6 2 4 7-1 4-7 4H9q-8 0-6-5 1-3 5-4Zm3 9v6m12-6v6m-9-12h.1m7 0h.1'],
  'Johny Johny Yes Papa':['#ffad95','M5 7h22v14H16l-5 5v-5H5zm5 7h.1m6 0h.1m6 0h.1'],
@@ -919,9 +920,87 @@ function moveArtBody(m){
  return `<rect x="1" y="1" width="30" height="30" rx="8" fill="${bg}" stroke="${color}" stroke-opacity=".75"/>${ink||`<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`}`;
 }
 const moveArt=m=>`<svg class="move-art" viewBox="0 0 32 32" aria-hidden="true">${moveArtBody(m)}</svg>`;
+// A low-resolution canvas produces real bitmap pixels, not a scaled vector.
+// Motion profiles use short stepped poses. Calls use the choreography clock.
+const PIXEL_MOTION={
+ 'Home':'settle','Wave hello':'wave','Nod yes':'nod','Shake no':'shake','Look around':'scan',
+ 'Radar scan':'radar','Claw snap':'snap','Pick and place':'carry','Excavator dig':'dig',
+ 'Dance':'dance','Disco spin':'spin','Stretch':'stretch','Bow':'bow','Screwdriver':'twist',
+ 'Pour a drink':'pour','Stir the pot':'orbit','Draw a circle':'orbit','Figure eight':'eight',
+ 'Hammer':'hammer','Swim':'swim','Snake':'coil','Peek-a-boo':'peek','Rocket launch':'rocket',
+ 'Sleepy':'breathe','Guard dog':'listen','Row Your Boat':'sail','Wheels on the Bus':'roll',
+ 'Baa Baa Black Sheep':'hop','Twinkle Twinkle':'twinkle','Jingle Bells':'wave',
+ 'Happy Birthday':'twinkle','Mountain King':'rise','Für Elise':'keys',
+ 'Johny Johny Yes Papa':'nod','Ode to Joy':'heartbeat'
+};
+const PIXEL_POSE={
+ settle:[[0,-2],[0,-1],[0,0],[0,0]],wave:[[0,0,-14],[0,-1,0],[0,0,14],[0,-1,0]],
+ nod:[[0,-2],[0,0,5],[0,2,9],[0,0,5]],shake:[[-2,0],[0,0],[2,0],[0,0]],
+ scan:[[-2,0,-6],[0,0],[2,0,6],[0,0]],radar:[[0,0,-18],[0,0,-5],[0,0,9],[0,0,19],[0,0,9],[0,0,-5]],
+ snap:[[0,0],[0,0,0,.82,1],[0,0,0,1.08,1],[0,0]],
+ carry:[[-3,2],[-3,-2],[3,-2],[3,2]],dig:[[0,-1,-12],[-2,2,-2],[1,1,12],[2,-2,2]],
+ dance:[[-2,1,-10],[0,-2],[2,1,10],[0,-2]],spin:[[0,0],[0,0,0,.62,1],[0,0,0,-1,1],[0,0,0,.62,1]],
+ stretch:[[0,0],[0,0,0,.87,.87],[0,0,0,1.08,1.08],[0,0]],
+ bow:[[0,-1],[1,1,12],[2,2,18],[1,1,12]],twist:[[0,0,-18],[0,0],[0,0,18],[0,0]],
+ pour:[[0,0],[0,0,14],[1,1,24],[0,0,14]],orbit:[[0,-2],[2,0],[0,2],[-2,0]],
+ eight:[[-2,0],[-2,-2],[0,0],[2,2],[2,0],[2,-2],[0,0],[-2,2]],
+ hammer:[[0,-2,-19],[0,-2,-19],[1,2,15],[0,1,5]],swim:[[-2,1,-5],[0,-1],[2,1,5],[0,-1]],
+ coil:[[0,0],[0,0,0,1,1,2],[0,0],[0,0,0,1,1,-2]],
+ listen:[[0,0],[0,0,-5],[0,0],[0,0,5]],peek:[[0,4],[0,4],[0,-2],[0,0]],
+ rocket:[[0,3],[0,2],[0,-1],[0,-4],[0,-5],[0,-1]],
+ breathe:[[0,0],[0,0,0,.95,.9],[0,0,0,.9,.84],[0,0,0,.95,.9]],
+ sail:[[-2,0,-6],[0,-1],[2,0,6],[0,-1]],roll:[[-3,0],[-1,-1],[1,0],[3,-1],[1,0],[-1,-1]],
+ hop:[[0,2],[0,-2],[0,-3],[0,0]],twinkle:[[0,0,0,.9,.9],[0,0],[0,0,0,1.08,1.08],[0,0]],
+ rise:[[0,2],[0,0],[0,-2],[0,0]],keys:[[-1,0,-4],[0,1],[1,0,4],[0,1]],
+ heartbeat:[[0,0],[0,0,0,1.1,1.1],[0,0],[0,0,0,1.07,1.07],[0,0],[0,0]]
+};
+function playMoveBitmap(m){
+ const host=$('npPic'),c=document.createElement('canvas'),sprite=document.createElement('canvas');
+ c.width=c.height=sprite.width=sprite.height=32;c.className='move-art';c.setAttribute('aria-hidden','true');
+ const cx=c.getContext('2d'),sx=sprite.getContext('2d');
+ if(!cx||!sx)return;
+ const [accent,,,bg='#192b37']=MOVE_ART[m.n],poses=PIXEL_POSE[PIXEL_MOTION[m.n]]||PIXEL_POSE.dance;
+ const [base,call]=[new Image(),new Image()];
+ const ink=moveArtBody(m).replace(/^<rect[^>]*\/>/,'');
+ const url=body=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${body}</svg>`);
+ const still=matchMedia('(prefers-reduced-motion: reduce)');
+ base.onload=()=>{
+  if(!host.contains(fallback))return;
+  host.replaceChildren(c);
+  cx.imageSmoothingEnabled=false;sx.imageSmoothingEnabled=false;
+  const start=performance.now();
+  let last=-1;
+  const frame=now=>{
+   if(!host.contains(c))return;
+   const phase=still.matches?0:Math.floor((now-start)/155)%poses.length;
+   const calling=!still.matches&&!!show?.calling&&call.complete&&call.naturalWidth>0;
+   const key=calling?poses.length:phase;
+   if(key!==last){
+    last=key;
+    const [x=0,y=0,a=0,w=1,h=1,coil=0]=calling?[0,-1]:poses[phase];
+    sx.clearRect(0,0,32,32);sx.save();
+    sx.translate(16+x,16+y);sx.rotate(a*Math.PI/180);sx.scale(w,h);
+    sx.drawImage(calling?call:base,-16,-16,32,32);sx.restore();
+    cx.fillStyle=accent;cx.fillRect(0,0,32,32);
+    cx.fillStyle=bg;cx.fillRect(1,1,30,30);
+    for(let row=1;row<31;row++){
+     const drift=coil?Math.round(coil*(16-row)/16):0;
+     cx.drawImage(sprite,1,row,30,1,1+drift,row,30,1);
+    }
+    cx.fillStyle=accent;cx.fillRect(0,0,1,32);cx.fillRect(31,0,1,32);
+   }
+   requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+ };
+ const fallback=host.firstElementChild;
+ base.src=url(ink);
+ if(ink.includes('data-call="1"'))call.src=url(ink.replace('data-call="1" display="none"',''));
+}
 function showMoveBadge(m){
  $('npPic').innerHTML=moveArt(m);
  $('npPic').setAttribute('aria-label',m.n);$('nowPlay').classList.add('open');
+ playMoveBitmap(m);
  if(REMOTE&&real&&state.oledMoveUi===1)sendOledMove(MOVES.indexOf(m)+1);
 }
 let oledRefresh=0,oledSession='';
@@ -1074,7 +1153,7 @@ function animateCall(c,T,tok){
  let started=false;
  atCue(T,tok,()=>{
   if(S.clock()>T+CALL_RETURN*.65)return; // skip a missed onset instead of opening late
-  started=true;
+  started=true;tok.calling=true;
   callPicture(J[JK.h].max-(1-c.jaw)*45,90);
   if(tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[JK.h].verified){
    const start=pulseFor(JK.h,tok.jawBase),target=pulseFor(JK.h,c.jaw);
@@ -1084,6 +1163,7 @@ function animateCall(c,T,tok){
  });
  atCue(T+CALL_RETURN,tok,()=>{
   if(!started)return;
+  tok.calling=false;
   callPicture(tok.jawPictureRest,150);
   if(tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[JK.h].verified)realPose({h:tok.jawBase},tok);
  });
