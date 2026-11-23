@@ -129,5 +129,45 @@ async function view(id,keyHex,video,onStatus=()=>{},img=null){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!live)schedule(200);});
   return {get live(){return live;}};
 }
-window.CamLink={send,view};
+// The controller uses the arm camera only. This firmware sends 160x120
+// authenticated JPEGs on the shared photo topic; the legacy sender uses 640px.
+async function viewArm(id,keyHex,img,onStatus=()=>{}){
+  const key=await aesKey(keyHex),me=rid(),photoTopic=`rarm1/${id}/j`;
+  let latest=0,seq=0,displayed=0,current='';
+  async function onFrame(topic,bytes){
+    if(topic!==photoTopic)return;
+    const order=++seq;
+    let blob,bitmap;
+    try{
+      const jpg=await openBytes(key,bytes);
+      blob=new Blob([jpg],{type:'image/jpeg'});
+      bitmap=await createImageBitmap(blob);
+      if(bitmap.width!==160||bitmap.height!==120||order<=displayed)return;
+    }catch{return;}
+    finally{if(bitmap)bitmap.close();}
+    displayed=order;
+    const next=URL.createObjectURL(blob),previous=current;
+    current=next;img.src=next;
+    if(previous)URL.revokeObjectURL(previous);
+    const first=!latest;
+    latest=Date.now();
+    if(first)onStatus('live-arm');
+  }
+  const ask=async()=>{if(R.up&&!document.hidden)R.send(await seal(key,{t:'photo',from:me}));};
+  const R=relay(`rarm1/${id}/v`,()=>{},up=>{if(up){if(!latest)onStatus('waiting');ask().catch(()=>{});}},onFrame);
+  R.subscribe(photoTopic);
+  const poll=()=>ask().catch(()=>{});
+  setInterval(poll,4000);
+  document.addEventListener('visibilitychange',poll);
+  setInterval(()=>{
+    if(latest&&Date.now()-latest>5000){
+      latest=0;
+      img.removeAttribute('src');
+      if(current)URL.revokeObjectURL(current);
+      current='';
+      onStatus('waiting');
+    }
+  },1000);
+}
+window.CamLink={send,view,viewArm};
 })();

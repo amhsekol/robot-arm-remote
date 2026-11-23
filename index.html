@@ -699,15 +699,18 @@ document.addEventListener('keydown',e=>{
  keysDown.set(e.code,b);hold(J.findIndex(j=>id.startsWith(j.key+'-')),Number(src.dataset.dir),b);
 });
 document.addEventListener('keyup',e=>{const b=keysDown.get(e.code);if(!b)return;keysDown.delete(e.code);releaseBtn(b);});
-// ---------- live camera from the home laptop (internet link only) ----------
+// ---------- live HUAQUE camera from the arm (internet link only) ----------
 let camOn=true;try{if(localStorage.getItem('avReset')!=='1'){localStorage.removeItem('camOn');localStorage.removeItem('armSound');localStorage.setItem('avReset','1');}camOn=localStorage.getItem('camOn')!=='0';}catch{}
 function camBtnShow(){const b=$('camBtn');b.hidden=!REMOTE;b.setAttribute('aria-pressed',String(camOn));b.setAttribute('aria-label',camOn?'Camera on. Tap to hide it.':'Camera off. Tap to show the camera.');b.style.opacity=camOn?1:.55;}
 camBtnShow();$('camBtn').onclick=()=>{camOn=!camOn;try{localStorage.setItem('camOn',camOn?'1':'0');}catch{}location.reload();};
 if(REMOTE&&camOn){
- const s=document.createElement('script');s.src='camlink.js';
- s.onload=()=>{const v=$('camv'),st=$('stage'),pill=$('camPill'),txt=$('camText');pill.hidden=false;
-  const words={'live-photo':'Camera: live (backup)',asking:'Camera: calling laptop…',connecting:'Camera: connecting…',waiting:'Camera: waiting for laptop',lost:'Camera: lost, retrying…',live:'Camera: live'};
-  window.CamLink.view(LINK_ID,LINK_KEY,v,k=>{const on=k==='live'||k==='live-photo';v.hidden=k!=='live';$('cami').hidden=k!=='live-photo';if(on&&window.__armDrive)window.__armDrive(true);st.classList.toggle('cam',on);pill.classList.toggle('ok',on);pill.classList.toggle('bad',k==='lost');txt.textContent=words[k]||k;},$('cami'));};
+ const s=document.createElement('script');s.src='camlink.js?v=arm-camera-1';
+ const st=$('stage'),pill=$('camPill'),txt=$('camText'),img=$('cami');
+ pill.hidden=false;
+ const showCamera=k=>{const on=k==='live-arm';img.hidden=!on;if(on&&window.__armDrive)window.__armDrive(true);st.classList.toggle('cam',on);pill.classList.toggle('ok',on);pill.classList.toggle('bad',k==='error');txt.textContent=on?'Arm camera: live':k==='error'?'Arm camera: unavailable':'Arm camera: waiting';};
+ showCamera('waiting');
+ s.onload=()=>window.CamLink.viewArm(LINK_ID,LINK_KEY,img,showCamera).catch(()=>showCamera('error'));
+ s.onerror=()=>showCamera('error');
  document.head.append(s);
 }
 // ---------- speed (1 slow, 2 gentle, 3 normal, 4 fast) ----------
