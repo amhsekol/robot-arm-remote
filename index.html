@@ -850,11 +850,11 @@ const CAP=[.9,.5,.7,.85,1,1];
 const _=null,F=(t,l,b,w,x,h,wait=0)=>({v:[t,l,b,w,x,h],wait});
 const MOVES=[
  {n:'Home',once:1,loop:[F(0,0,0,0,0,0)]},
- {n:'Wave hello',intro:[F(0,.25,-.35,0,0,1)],loop:[F(_,_,_,-.6),F(_,_,_,.6)]},
- {n:'Nod yes',intro:[F(0,0,-.2,0,0,0)],loop:[F(_,_,_,.45),F(_,_,_,-.25)]},
- {n:'Shake no',intro:[F(0,0,-.2,.3,0,0)],loop:[F(-.3),F(.3)]},
+ {n:'Wave hello',intro:[F(0,.25,-.35,0,0)],loop:[F(_,_,_,-.6),F(_,_,_,.6)]},
+ {n:'Nod yes',intro:[F(0,0,-.2,0,0)],loop:[F(_,_,_,.45),F(_,_,_,-.25)]},
+ {n:'Shake no',intro:[F(0,0,-.2,.3,0)],loop:[F(-.3),F(.3)]},
  {n:'Look around',intro:[F(0,.15,-.3,-.3,0,0)],loop:[F(-.8,_,_,_,_,_,600),F(.8,_,_,_,_,_,600)]},
- {n:'Radar scan',intro:[F(-.9,0,0,0,0,0)],loop:[F(.9,_,_,_,_,_,300),F(-.9,_,_,_,_,_,300)]},
+ {n:'Radar scan',intro:[F(-.9,0,0,0,0)],loop:[F(.9,_,_,_,_,_,300),F(-.9,_,_,_,_,_,300)]},
  {n:'Claw snap',intro:[F(_,_,_,_,_,0)],loop:[F(_,_,_,_,_,1,150),F(_,_,_,_,_,-1,150)]},
  {n:'Pick and place',intro:[F(0,0,0,0,0,1)],loop:[F(-.6,_,_,_,_,1),F(_,-.4,.6,.5,_,1),F(_,_,_,_,_,-1,300),F(_,0,0,0),F(.6),F(_,-.4,.6,.5),F(_,_,_,_,_,1,300),F(_,0,0,0)]},
  {n:'Excavator dig',intro:[F(-.5,0,0,-.6,0,1)],loop:[F(-.5,-.4,.55,.6,_,1),F(_,_,_,_,_,-1,200),F(_,.1,-.2,-.4,_,-1),F(.5),F(_,_,_,.6,_,1,300),F(_,_,_,-.4),F(-.5,0,0,-.6)]},
@@ -865,8 +865,8 @@ const MOVES=[
  {n:'Screwdriver',intro:[F(0,-.1,.2,.2,0,-1)],loop:[F(_,_,_,_,1,_,100),F(_,_,_,_,-1,_,100)]},
  {n:'Pour a drink',intro:[F(.3,-.2,.3,.3,0,-1)],loop:[F(_,_,_,_,.9,_,900),F(_,_,_,_,0,_,600)]},
  {n:'Stir the pot',intro:[F(0,-.15,.35,.4,0,-1)],loop:[F(-.25,-.15,.35,.4),F(0,-.25,.45,.5),F(.25,-.15,.35,.4),F(0,-.05,.25,.3)]},
- {n:'Draw a circle',intro:[F(0,0,0,0,0,-1)],loop:[F(-.4,.2,-.2,0),F(0,.4,-.4,0),F(.4,.2,-.2,0),F(0,0,0,0)]},
- {n:'Figure eight',intro:[F(0,0,0,0,0,-1)],loop:[F(-.4,.25),F(0,0),F(.4,-.25),F(0,0),F(-.4,-.25),F(0,0),F(.4,.25),F(0,0)]},
+ {n:'Draw a circle',intro:[F(0,0,0,0,0)],loop:[F(-.4,.2,-.2,0),F(0,.4,-.4,0),F(.4,.2,-.2,0),F(0,0,0,0)]},
+ {n:'Figure eight',intro:[F(0,0,0,0,0)],loop:[F(-.4,.25),F(0,0),F(.4,-.25),F(0,0),F(-.4,-.25),F(0,0),F(.4,.25),F(0,0)]},
  {n:'Hammer',intro:[F(.2,-.1,.3,0,0,-1)],loop:[F(_,_,_,-.5,_,_,100),F(_,_,_,.6,_,_,100)]},
  {n:'Swim',loop:[F(_,.35,-.5,.4),F(_,-.35,.5,-.4)]},
  {n:'Snake',loop:[F(-.3,.1,.4,-.6),F(.3,-.1,-.4,.6)]},
@@ -938,19 +938,20 @@ function sendOledMove(id){
  push();oledRefresh=setInterval(push,1500);
 }
 // ---- animal shows: b = beat, p = pose (-1..1; h = mouth/claw: + open), d = glide length in beats ----
-const CLOSE={h:-.5},MOUTH=v=>({h:v});
+const MOUTH=v=>({h:v});
 const CHAR={
  'Snake':{song:'snake',look:'snake',len:8,cues:[
-  {b:0,p:{t:-.3,w:.3,l:.3,b:.1},d:3.5},{b:0,p:CLOSE,d:.3},
-  {b:1,p:MOUTH(.4),d:.15,sfx:'flick'},{b:1.5,p:CLOSE,d:.15},{b:2,p:MOUTH(.4),d:.15,sfx:'flick'},{b:2.5,p:CLOSE,d:.15},
-  {b:4,p:{t:.3,w:-.3,l:.35,b:.05},d:3.5},{b:5,p:MOUTH(.4),d:.15,sfx:'flick'},{b:5.5,p:CLOSE,d:.15},
+  {b:0,p:{t:-.3,w:.3,l:.3,b:.1},d:3.5},
+  {b:1.4,jaw:.9,sfx:'hissCue',burst:'wiggle',n:6},
+  {b:4,p:{t:.3,w:-.3,l:.35,b:.05},d:3.5},{b:5,jaw:.9,sfx:'hissCue',burst:'wiggle',n:6},
   {b:6.25,p:{l:.45,b:-.15,w:.35},d:.6},
-  {b:7,p:{h:1,l:.2,b:.3,w:-.1},d:.25,sfx:'strike',shake:1,burst:'wiggle',n:14,glow:'#4dff9a'},{b:7.6,p:CLOSE,d:.3}]},
+  {b:7,p:{l:.2,b:.3,w:-.1},jaw:1,d:.25,sfx:'hissCue',shake:1,burst:'wiggle',n:14,glow:'#4dff9a'}]},
  'Guard dog':{song:'dog',look:'dog',len:8,cues:[
-  {b:0,p:{t:-.25,l:.3,w:.1},d:2},{b:0,p:MOUTH(.15),d:.2,sfx:'pant'},{b:.5,p:MOUTH(-.25),d:.2},{b:1,p:MOUTH(.15),d:.2,sfx:'pant'},{b:1.5,p:MOUTH(-.25),d:.2},
-  {b:2,p:{t:.25},d:2},{b:2,p:MOUTH(.15),d:.2,sfx:'pant'},{b:2.5,p:MOUTH(-.25),d:.2},{b:3,p:MOUTH(.15),d:.2,sfx:'pant'},{b:3.5,p:MOUTH(-.25),d:.2},
-  {b:4,p:{t:0,l:.4,w:.25,h:-.5},d:.4},
-  {b:4.5,p:{h:.9,w:.4},d:.12,sfx:'bark',shake:1,burst:'stars',n:6},{b:5.28,p:{h:-.4,w:.2},d:.15},{b:5.83,p:{h:.9,w:.4},d:.12,burst:'stars',n:6},{b:6.4,p:{h:-.5,w:.2},d:.2},
+  {b:0,p:{t:-.25,l:.3,w:.1},d:2},
+  {b:2,p:{t:.25},d:2},
+  {b:4,p:{t:0,l:.4,w:.25},d:.4},
+  {b:4.5,p:{w:.4},jaw:1,d:.12,sfx:'barkCue',shake:1,burst:'stars',n:11},
+  {b:5.83,p:{w:.34},jaw:1,d:.12,sfx:'barkCue',shake:1,burst:'stars',n:9},
   {b:7,p:{l:.25,w:0},d:1}]},
  'Peek-a-boo':{song:'boo',look:'ghost',len:8,cues:[
   {b:0,p:{t:0,l:0,b:.45,w:-.5,h:-.6},d:1.5},
@@ -1065,20 +1066,59 @@ function showLoop(){if(!show)return;const n=performance.now();
 function realPose(p,tok){if(!(tok.real&&real&&LIVE))return;for(const [k,v] of Object.entries(p)){const i=JK[k];if(!state.joints[i].verified)continue;
  const vv=Math.max(-CAP[i],Math.min(CAP[i],v)),pu=pulseFor(i,vv);if(tok.sent[i]===pu)continue;tok.sent[i]=pu;
  raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}}
+const CALL_TIME=.64, CALL_RETURN=.28;
+function atCue(T,tok,fn){setTimeout(()=>{if(tok.alive&&show===tok)fn();},Math.max(0,(T-S.clock())*1000));}
+function callPicture(to,ms){const i=JK.h,t0=performance.now();glides.set(i,{from:J[i].v,to,t0,t1:t0+ms});}
+function animateCall(c,T,tok){
+ // Both visual phases are inside the animal sound. The physical claw receives
+ // a short, bounded stroke; no early packet for the jaw, and no idle commands.
+ let started=false;
+ atCue(T,tok,()=>{
+  if(S.clock()>T+CALL_RETURN*.65)return; // skip a missed onset instead of opening late
+  started=true;
+  callPicture(J[JK.h].max-(1-c.jaw)*45,90);
+  if(tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[JK.h].verified){
+   const start=pulseFor(JK.h,tok.jawBase),target=pulseFor(JK.h,c.jaw);
+   const peak=start+Math.sign(target-start)*Math.min(175,Math.abs(target-start));
+   if(peak!==start)realPose({h:vOfPulse(JK.h,peak)},tok);
+  }
+ });
+ atCue(T+CALL_RETURN,tok,()=>{
+  if(!started)return;
+  callPicture(tok.jawPictureRest,150);
+  if(tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[JK.h].verified)realPose({h:tok.jawBase},tok);
+ });
+}
 // ---- one cue at audio time T ----
-function cueAt(c,T,B,tok){const ms=Math.max(0,(T-S.clock())*1000);
- if(c.sfx)S.fxAt(c.sfx,T);if(c.say)S.sayAt(c.say,T,c.voice);
- const p=c.p||{};
- setTimeout(()=>{if(!tok.alive)return;glideTo(p,(c.d||.25)*B,tok);if(c.burst)FX.burst(c.burst,c.n||8);if(c.glow)FX.pulse(c.glow);if(c.shake)shake();if(c.pop)mouthPop=performance.now();if(c.lyric)c.lyric();},ms);
- if(Object.keys(p).length)setTimeout(()=>{if(tok.alive)realPose(p,tok);},Math.max(0,ms-SHOW_LEAD*1000));}
+function cueAt(c,T,B,tok){
+ if(c.sfx)S.fxAt(c.sfx,T,c.jaw===undefined?undefined:CALL_TIME);if(c.say)atCue(T,tok,()=>S.sayAt(c.say,S.clock(),c.voice,tok));
+ const {h,...body}=c.p||{};
+ atCue(T,tok,()=>{
+  glideTo(body,(c.d||.25)*B,tok);
+  if(h!==undefined&&c.jaw===undefined){
+   const changed=Math.abs(picFor(JK.h,h)-J[JK.h].v)>.5;
+   if(changed&&!c.sfx&&!c.say&&!c.note)S.fxAt('gripCue',S.clock()+.005,Math.max(.14,(c.d||.25)*B));
+   glideTo({h},(c.d||.25)*B,tok);
+   realPose({h},tok);
+  }
+  if(c.burst)FX.burst(c.burst,c.n||8);if(c.glow)FX.pulse(c.glow);if(c.shake)shake();if(c.lyric)c.lyric();
+ });
+ if(c.jaw!==undefined)animateCall(c,T,tok);
+ if(Object.keys(body).length)atCue(T-SHOW_LEAD,tok,()=>realPose(body,tok));}
 function showStart(k){stopMove();release();const m=MOVES[k],tok={k,alive:true,loop:1,real:real,sent:[]};show=tok;glides.clear();
  if(tok.real&&real&&LIVE&&state.held)for(let i=0;i<6;i++){const h=state.held[i];if(h&&state.joints[i].verified){const v=vOfPulse(i,h);mv.cur[i]=v;J[i].v=picFor(i,v);tok.sent[i]=h;}}
+ if(m.look==='dog'||m.look==='snake'){
+  const pulse=tok.real&&state.held&&state.held[JK.h];
+  const j=state.joints[JK.h];
+  tok.jawBase=pulse&&j.verified&&pulse>=j.low&&pulse<=j.high?vOfPulse(JK.h,pulse):null;
+  tok.jawPictureRest=J[JK.h].v;
+ }
  mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
  showMoveBadge(m);$('npLyric').innerHTML='';
  setLook(m.look||'');if(tok.real&&real&&LIVE)raw('/api/speed',{revision:state.revision,owner,level:4}).catch(()=>{});
  tip(tok.real?`<strong>${m.n}.</strong> The real arm is performing. STOP ends it.`:`<strong>${m.n}</strong> (picture).`);
  requestAnimationFrame(showLoop);return tok;}
-function showEnd(tok){if(tok.real&&real&&LIVE)sendSpeed();}
+function showEnd(tok){if(!show&&tok.real&&real&&LIVE)sendSpeed();}
 // Character shows: cues on a beat grid over the move's own music
 async function playChar(k){if(canAuto())await ensureReal();const m=MOVES[k],tok=showStart(k);
  S.play({...SONG[m.song],fx:null,nohiss:true},info=>{if(show===tok&&(info.kick||info.beat))FX.pulse();});const T0=S.t0(),B=60/SONG[m.song].bpm;let i=0,loop=0;
@@ -1090,7 +1130,9 @@ async function playSong(k){if(canAuto())await ensureReal();const m=MOVES[k],tok=
  const lyr=(li,wi)=>()=>{const L=sg.lines[li]||[];$('npLyric').innerHTML=L.map((w,n)=>{const x=esc(w.replace(/-$/,''));return (n===wi?`<b>${x}</b>`:x)+(w.endsWith('-')?'':' ');}).join('');};
  const wIndex=[];{let cnt={};sg.cues.forEach((c,n)=>{if(!c.w){wIndex.push(-1);return;}cnt[c.li]=(cnt[c.li]||0);wIndex.push(cnt[c.li]++);});}
  S.melody(sg,(i,T,d,loop,B)=>{if(!tok.alive)return;const c=sg.cues[i];
-  cueAt({...c,d:Math.min(d/B*.8,.6),burst:c.p.h!==undefined?'stars':null,n:4,lyric:c.w?lyr(c.li,wIndex[i]):null},T,B,tok);
+  const note=sg.notes[i][0]!==null;
+  const p={...c.p};if(!note)delete p.h;
+  cueAt({...c,p,note,d:Math.min(d/B*.8,.6),burst:p.h!==undefined?'stars':null,n:4,lyric:c.w?lyr(c.li,wIndex[i]):null},T,B,tok);
   if(i===0&&loop>0)setTimeout(()=>{if(tok.alive)$('npLoop').textContent=`loop ${loop+1}`;},Math.max(0,(T-S.clock())*1000));});
  const wait=()=>{if(!tok.alive){showEnd(tok);return;}setTimeout(wait,300);};wait();}
 
@@ -1100,7 +1142,7 @@ for(const sg of SONGS)MOVES.push({n:sg.n,kid:sg.kid,look:sg.look,sing:{...parseS
 const RATE=[0,50,100,200,350]; // µs per second for each speed level (firmware steps × 50 ticks)
 const mgrid=$('mgrid');
 function addTile(m,k){
- const fr=m.cues?m.cues.map(c=>c.p||{}):m.sing?m.sing.cues.map(c=>c.p):[...(m.intro||[]),...m.loop].map(f=>Object.fromEntries(f.v.map((v,i)=>[Object.keys(JK)[i],v]).filter(e=>e[1]!==null&&e[1]!==undefined)));
+ const fr=m.cues?m.cues.map(c=>c.jaw===undefined?c.p||{}:{...c.p,h:c.jaw}):m.sing?m.sing.cues.map(c=>c.p):[...(m.intro||[]),...m.loop].map(f=>Object.fromEntries(f.v.map((v,i)=>[Object.keys(JK)[i],v]).filter(e=>e[1]!==null&&e[1]!==undefined)));
  const used=J.map((_j,i)=>fr.some(p=>p[Object.keys(JK)[i]]!==undefined));
  const t=document.createElement('button');t.className='mtile'+(m.sing?' song':m.cues?' char':'');t.dataset.testid='move-'+k;t.dataset.k=k;
  t.innerHTML=`<i aria-hidden="true">${moveArt(m)}</i><b>${esc(m.n)}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
@@ -1123,14 +1165,22 @@ function pulseFor(i,v){const j=state.joints[i],s=j.reverse?-1:1,d=v*s;return Mat
 function picFor(i,v){const j=J[i],span=j.g||(j.max-j.min)/2;return Math.max(j.min,Math.min(j.max,START[i]+v*span));}
 const mv={cur:[0,0,0,0,0,0]};
 async function goFrame(f,tok){
- const live=real&&LIVE,idx=[],from=[],to=[];let longest=0;
- for(let i=0;i<6;i++){let v=f.v[i];if(v===null||v===undefined)continue;v=Math.max(-CAP[i],Math.min(CAP[i],v));
+ const live=tok.real&&real&&LIVE,idx=[],from=[],to=[];let longest=0,jawMove=0;
+ for(let i=0;i<6;i++){if(!tok.alive)return;let v=f.v[i];if(v===null||v===undefined)continue;v=Math.max(-CAP[i],Math.min(CAP[i],v));
   if(live&&!state.joints[i].verified)continue;
   const j=live?state.joints[i]:{low:500,start:1500,high:2500};const span=v>=mv.cur[i]?(j.high-j.start):(j.start-j.low);
-  longest=Math.max(longest,Math.abs(v-mv.cur[i])*span);idx.push(i);from.push(J[i].v);to.push(picFor(i,v));mv.cur[i]=v;
-  if(live){try{await raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:pulseFor(i,v)});}catch(e){stopMove();realOff();lose(e);return;}}
+  const target=picFor(i,v),travel=Math.abs(v-mv.cur[i]);
+  const pulse=live?pulseFor(i,v):null,send=live&&tok.sent[i]!==pulse;
+  if(i===JK.h&&(live?send:Math.abs(target-J[i].v)>.5)){
+   jawMove=1;
+   if(live)S.fxAt('gripCue',S.clock()+.005,Math.max(.16,Math.min(1.4,travel*span/(speed>=3?1000:RATE[speed]))));
+  }
+  longest=Math.max(longest,travel*span);idx.push(i);from.push(J[i].v);to.push(target);mv.cur[i]=v;
+  if(send){tok.sent[i]=pulse;try{await raw('/api/goto',{revision:state.revision,owner,slot:i,pulse});}catch(e){stopMove();realOff();lose(e);return;}}
  }
+ if(!tok.alive)return;
  const T=Math.max(250,longest/RATE[speed]*1000);const t0=performance.now();mv.moving=true;
+ if(jawMove&&!live)S.fxAt('gripCue',S.clock()+.005,Math.min(1.4,T/1000));
  await new Promise(ok=>{const step=now=>{if(!tok.alive){ok();return;}const k=Math.min(1,(now-t0)/T);idx.forEach((i,n)=>{J[i].v=from[n]+(to[n]-from[n])*k;});draw();game();if(k>=1)ok();else requestAnimationFrame(step);};requestAnimationFrame(step);});
  mv.moving=false;
  if(live&&tok.alive&&REMOTE){ // wait until the arm reports it arrived (state every 0.4 s), at most 2 s more
@@ -1141,12 +1191,12 @@ async function goFrame(f,tok){
 }
 async function playMove(k){
  if(MOVES[k].cues)return playChar(k);if(MOVES[k].sing)return playSong(k);
- stopMove();release();if(canAuto())await ensureReal();const m=MOVES[k],tok={k,alive:true,loop:1,real:real};show=tok;
+ stopMove();release();if(canAuto())await ensureReal();const m=MOVES[k],tok={k,alive:true,loop:1,real:real,sent:[]};show=tok;
  mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
  S.play(SONG[MOVE_SONG[k]]||SONG.happy,beatFx);setLook(LOOK[MOVE_SONG[k]]);costumeLoop();
  showMoveBadge(m,m.once?'':'loop 1');
  tip(real?`<strong>${m.n}.</strong> The real arm is doing it. Tap Stop to end.`:LIVE&&connected&&!state.firmwareLocked?`<strong>${m.n}</strong> on the picture only. Connect the arm to make it do it.`:`<strong>${m.n}</strong> (practice picture).`);
- if(tok.real)for(let i=0;i<6;i++){const h=state.held&&state.held[i];if(h&&state.joints[i].verified){mv.cur[i]=vOfPulse(i,h);J[i].v=picFor(i,mv.cur[i]);}else mv.cur[i]=0;}
+ if(tok.real)for(let i=0;i<6;i++){const h=state.held&&state.held[i];if(h&&state.joints[i].verified){mv.cur[i]=vOfPulse(i,h);J[i].v=picFor(i,mv.cur[i]);tok.sent[i]=h;}else mv.cur[i]=0;}
  for(const f of m.intro||[]){if(!tok.alive)break;await goFrame(f,tok);}
  while(tok.alive){for(const f of m.loop){if(!tok.alive||(tok.real&&!real))break;await goFrame(f,tok);}if(m.once||(tok.real&&!real))break;tok.loop++;S.fx('level');$('npLoop').textContent=`loop ${tok.loop}`;}
  if(show===tok){show=null;tok.alive=false;endMoveUi();if(m.once&&!tok.stopped)tip(`<strong>${m.n}</strong> done.`);}
@@ -1161,7 +1211,7 @@ window.__armx={ensureReal,goto:(slot,pulse)=>raw("/api/goto",{revision:state.rev
 // ---------- sound, music and screen effects ----------
 // Everything is made live with Web Audio (no sound files). Each move has its own little song.
 const S=(()=>{
- let ctx=null,master=null,nb=null,mo=null,mg=null,mf=null,on=true;try{on=localStorage.getItem('armSound')!=='0';}catch{}
+ let ctx=null,master=null,cueBus=null,routed=null,nb=null,mo=null,mg=null,mf=null,on=true;try{on=localStorage.getItem('armSound')!=='0';}catch{}
  function init(){if(ctx)return ctx;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;ctx=new AC();
   const comp=ctx.createDynamicsCompressor();master=ctx.createGain();master.gain.value=on?.8:0;master.connect(comp);comp.connect(ctx.destination);
   nb=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
@@ -1170,13 +1220,13 @@ const S=(()=>{
  // real recordings (dog: Amada44, CC BY-SA 3.0, Wikimedia Commons; rattlesnake: public domain, Wikimedia Commons)
  const BUF={},SAMPLES={bark:'sounds/bark.mp3',rattle:'sounds/rattle.mp3'};let loading=false;
  function loadSamples(){if(loading||!ctx)return;loading=true;for(const [k,u] of Object.entries(SAMPLES))fetch(u).then(r=>r.arrayBuffer()).then(b=>new Promise((ok,no)=>ctx.decodeAudioData(b,ok,no))).then(x=>{BUF[k]=x;}).catch(()=>{});}
- function sample(k,t,vol=1,rate=1){if(!ctx||!BUF[k])return false;const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=BUF[k];s.playbackRate.value=rate;g.gain.value=vol;s.connect(g);g.connect(master);s.start(t);return true;}
+ function sample(k,t,vol=1,rate=1,offset=0,span){if(!ctx||!BUF[k])return false;const s=ctx.createBufferSource(),g=ctx.createGain();s.buffer=BUF[k];s.playbackRate.value=rate;g.gain.value=vol;s.connect(g);g.connect(routed||master);if(span===undefined)s.start(t,offset);else s.start(t,offset,span);return true;}
  let voiceReady=false;
- function say(text,t,o={}){if(!on||!window.speechSynthesis)return;const d=Math.max(0,(t-now())*1000);setTimeout(()=>{try{const u=new SpeechSynthesisUtterance(text);u.pitch=o.pitch||1.7;u.rate=o.rate||1.05;u.volume=1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}},d);}
+ function say(text,t,o={},tok){if(!on||!window.speechSynthesis)return;const d=Math.max(0,(t-now())*1000);setTimeout(()=>{if(!on||(tok&&!tok.alive))return;try{const u=new SpeechSynthesisUtterance(text);u.pitch=o.pitch||1.7;u.rate=o.rate||1.05;u.volume=1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}},d);}
  const unlock=()=>{init();if(ctx&&ctx.state==='suspended')ctx.resume().catch(()=>{});loadSamples();if(!voiceReady&&window.speechSynthesis){voiceReady=true;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch{}}};
  const now=()=>ctx?ctx.currentTime:0;
- function tone(f,t,dur,o={}){if(!ctx)return;const {type='triangle',vol=.2,glide=0,attack=.005}=o;const os=ctx.createOscillator(),g=ctx.createGain();os.type=type;os.frequency.setValueAtTime(f,t);if(glide)os.frequency.exponentialRampToValueAtTime(glide,t+dur);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+dur);os.connect(g);g.connect(master);os.start(t);os.stop(t+dur+.05);}
- function noise(t,dur,o={}){if(!ctx)return;const {vol=.2,type='highpass',f=6000,q=1,f2=0}=o;const s=ctx.createBufferSource();s.buffer=nb;const b=ctx.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f2)b.frequency.exponentialRampToValueAtTime(f2,t+dur);b.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(b);b.connect(g);g.connect(master);s.start(t,Math.random()*.5);s.stop(t+dur+.05);}
+ function tone(f,t,dur,o={}){if(!ctx)return;const {type='triangle',vol=.2,glide=0,attack=.005}=o;const os=ctx.createOscillator(),g=ctx.createGain();os.type=type;os.frequency.setValueAtTime(f,t);if(glide)os.frequency.exponentialRampToValueAtTime(glide,t+dur);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+dur);os.connect(g);g.connect(routed||master);os.start(t);os.stop(t+dur+.05);}
+ function noise(t,dur,o={}){if(!ctx)return;const {vol=.2,type='highpass',f=6000,q=1,f2=0}=o;const s=ctx.createBufferSource();s.buffer=nb;const b=ctx.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f2)b.frequency.exponentialRampToValueAtTime(f2,t+dur);b.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(b);b.connect(g);g.connect(routed||master);s.start(t,Math.random()*.24);s.stop(t+dur+.05);}
  const hz=m=>440*Math.pow(2,(m-69)/12);
  const SFX={
   click:t=>tone(1200,t,.04,{type:'sine',vol:.05}),
@@ -1198,6 +1248,15 @@ const S=(()=>{
   bubble:t=>tone(300+Math.random()*300,t,.12,{type:'sine',vol:.16,glide:1300}),
   snore:t=>{noise(t,1.1,{type:'lowpass',f:300,f2:900,vol:.22,q:6});tone(90,t,1.1,{type:'sawtooth',vol:.03});},
   bark:t=>{if(sample('bark',t,1))return;for(const d of [0,.22]){const u=t+d;tone(480,u,.16,{type:'sawtooth',vol:.32,glide:190,attack:.004});tone(240,u,.14,{type:'square',vol:.12,glide:120});noise(u,.12,{type:'bandpass',f:900,f2:500,q:1.2,vol:.45});}},
+  // Use just one bark from the two-bark recording. Jaw and sound use the same window.
+  barkCue:(t,d=.64)=>{const span=.235;if(sample('bark',t,1,.84,.152,span)){
+   noise(t+.15,d-.15,{type:'bandpass',f:480,f2:250,q:1.7,vol:.42});
+   tone(82,t+.15,d-.15,{type:'sawtooth',vol:.09,glide:56});
+  }else{
+   tone(430,t,d*.85,{type:'sawtooth',vol:.24,glide:120});noise(t,d,{type:'bandpass',f:860,f2:290,q:1.25,vol:.36});
+  }},
+  hissCue:(t,d=.64)=>{noise(t,d,{type:'bandpass',f:6400,f2:4100,q:2.1,vol:.6});noise(t,d*.92,{type:'highpass',f:7200,vol:.22});},
+  gripCue:(t,d=.32)=>{const dur=Math.max(.14,Math.min(2,d));tone(245,t,dur,{type:'triangle',vol:.14,glide:430});noise(t,dur,{type:'bandpass',f:1280,f2:520,q:1.4,vol:.14});},
   peek:t=>{say('Peek a boo!',t,{pitch:1.8,rate:1.1});tone(hz(84),t+.5,.25,{type:'sine',vol:.15});tone(hz(88),t+.62,.3,{type:'sine',vol:.15});},
   boing:t=>tone(180,t,.4,{type:'triangle',vol:.2,glide:720}),
   whoosh:t=>noise(t,1.4,{type:'lowpass',f:150,f2:5000,q:2,vol:.3}),
@@ -1261,7 +1320,8 @@ const S=(()=>{
  const SC={maj:[0,2,4,5,7,9,11,12,14,16],min:[0,2,3,5,7,8,10,12,14,15],pen:[0,2,4,7,9,12,14,16,19,21],blu:[0,3,5,6,7,10,12,15,17,18],hij:[0,1,4,5,7,8,10,12,13,16]};
  let song=null,timer=0,stepN=0,nextT=0,onBeat=null;
  function play(th,cb){stop();unlock();songT0=now()+.08;if(!on||!ctx)return;if(th.pungi){startPungi(th,cb);return;}song=th;onBeat=cb;stepN=0;nextT=songT0;timer=setInterval(pump,25);}
- function stop(){clearInterval(timer);timer=0;song=null;stopPungi();stopMel();}
+ function stop(){clearInterval(timer);timer=0;song=null;stopPungi();stopMel();
+  if(cueBus){cueBus.disconnect();cueBus=null;}if(window.speechSynthesis)speechSynthesis.cancel();}
  function pump(){if(!song||!ctx)return;const th=song,sp=60/th.bpm/4;
   while(nextT<now()+.12){const s=stepN%16,t=nextT,sc=SC[th.sc||'maj'];
    const at=(str,k=s)=>str&&str[k%str.length]==='x';const deg=(str,k=s)=>{const c=str&&str[k%str.length];return c&&c!=='.'?Number(c):null;};
@@ -1276,8 +1336,10 @@ const S=(()=>{
  // ---- shared clock for shows: music, sounds, picture and real arm all use these times ----
  let songT0=0;
  const clock=()=>now();
- function fxAt(name,T){if(!on||!ctx||!SFX[name])return;SFX[name](Math.max(now()+.005,T));}
- function sayAt(text,T,o){say(text,T,o);}
+ function fxAt(name,T,d){if(!on||!ctx||!SFX[name])return;
+  if(!cueBus){cueBus=ctx.createGain();cueBus.connect(master);}
+  routed=cueBus;try{SFX[name](Math.max(now()+.005,T),d);}finally{routed=null;}}
+ function sayAt(text,T,o,tok){say(text,T,o,tok);}
  // melody player for sing-along songs (notes: [midi|null, beats]); calls onNote(i,T,dur,loop) ahead of time
  const PC_CHORD={0:0,4:0,7:0,5:5,9:5,2:7,11:7,8:4,3:0,10:5,6:2,1:0};
  let mel=null;
@@ -1368,7 +1430,7 @@ let lastStars=0;setInterval(()=>{if(stars>lastStars){S.fx('star');FX.burst('star
 function soundBtn(){const b=$('sndBtn');b.setAttribute('aria-pressed',String(S.on));b.setAttribute('aria-label',S.on?'Sound on. Tap to mute.':'Sound off. Tap for sound.');b.innerHTML=S.on?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';}
 $('sndBtn').onclick=()=>{S.setOn(!S.on);soundBtn();if(S.on){S.fx('level');if(show){const m=MOVES[show.k];if(m.cues||m.sing)stopMove();else S.play(SONG[MOVE_SONG[show.k]]||SONG.happy,beatFx);}}};
 soundBtn();
-function beatFx(info){if(!show)return;if(info.fx)mouthPop=performance.now();const th=SONG[MOVE_SONG[show.k]]||SONG.happy;if(info.kick||info.beat)FX.pulse();FX.burst(th.p,info.fx?9:4);if(th.shake&&info.fx){shake();buzz(25);}}
+function beatFx(info){if(!show)return;const th=SONG[MOVE_SONG[show.k]]||SONG.happy;if(info.kick||info.beat)FX.pulse();FX.burst(th.p,info.fx?9:4);if(th.shake&&info.fx){shake();buzz(25);}}
 
 // ---------- costumes: during a move the picture arm turns into an animal or character ----------
 const LOOK={dog:'dog',snake:'snake',swim:'fish',rocket:'rocket',sleepy:'sleepy',disco:'disco',hammer:'hammer',radar:'radar',happy:'smiley',funky:'cool',boo:'ghost',royal:'king',space:'alien',dig:'digger',work:'builder',pour:'cup',snap:'crab',mystery:'owl',chill:'sunny',jingle:''};
@@ -1395,10 +1457,10 @@ const SCENES={
  cup:'',crab:'<path d="M0 206h360v24H0z" fill="#e8cf8f" opacity=".35"/>',smiley:'',cool:'',builder:''
 };
 // The claw is the mouth: the two jaws open and close with the hand (and pop open on a bark or hiss).
-let mouthPop=0;
 function jaws(op,hx,up,lo,extra=''){const ang=3+op*30;return `<g transform="rotate(${(-ang).toFixed(1)} ${hx} 0)">${up}</g><g transform="rotate(${ang.toFixed(1)} ${hx} 0)">${lo}</g>${extra}`;}
 function costume(name,x,y,a,len,t,op){
- const w=Math.sin(t/120);if(performance.now()-mouthPop<260)op=Math.max(op,.9);
+ const w=Math.sin(t/120);
+ if(name==='dog'||name==='snake')op=Math.max(0,Math.min(1.3,op*1.5));
  const face=(skin,hx,mouthC='#7a1f1f',teeth=true)=>jaws(op,hx,`<path d="M${hx} -1h14q4 0 4 3H${hx}z" fill="${skin}"/>${teeth?`<path d="M${hx+4} 2l2 3 2-3M${hx+10} 2l2 3 2-3" fill="#fff"/>`:''}`,`<path d="M${hx} 1h13q3 0 3-3H${hx}z" fill="${skin}"/>`,`<ellipse cx="${hx+6}" cy="0" rx="${3+op*5}" ry="${.6+op*4}" fill="${mouthC}"/>`);
  switch(name){
   case 'snake':{const fl=op>.35||(!(show&&MOVES[show.k].cues)&&Math.sin(t/90)>.4);return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
