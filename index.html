@@ -923,6 +923,19 @@ const moveArt=m=>`<svg class="move-art" viewBox="0 0 32 32" aria-hidden="true">$
 function showMoveBadge(m,loop=''){
  $('npPic').innerHTML=moveArt(m);
  $('npName').textContent=m.n;$('npLoop').textContent=loop;$('nowPlay').classList.add('open');
+ if(REMOTE&&real&&state.oledMoveUi===1)sendOledMove(MOVES.indexOf(m)+1);
+}
+let oledRefresh=0,oledSession='';
+function sendOledMove(id){
+ clearInterval(oledRefresh);oledRefresh=0;
+ if(!id){if(oledSession&&oledSession===R.sid&&R.up)rSend('d',0,0,oledSession).catch(()=>{});oledSession='';return;}
+ const sid=R.sid;
+ if(!sid)return;
+ oledSession=sid;
+ const push=()=>{if(!real||!show||show.k+1!==id||R.sid!==sid){clearInterval(oledRefresh);oledRefresh=0;return;}
+  if(R.up)rSend('d',id,0,sid).catch(()=>{});
+ };
+ push();oledRefresh=setInterval(push,1500);
 }
 // ---- animal shows: b = beat, p = pose (-1..1; h = mouth/claw: + open), d = glide length in beats ----
 const CLOSE={h:-.5},MOUTH=v=>({h:v});
@@ -1138,7 +1151,7 @@ async function playMove(k){
  while(tok.alive){for(const f of m.loop){if(!tok.alive||(tok.real&&!real))break;await goFrame(f,tok);}if(m.once||(tok.real&&!real))break;tok.loop++;S.fx('level');$('npLoop').textContent=`loop ${tok.loop}`;}
  if(show===tok){show=null;tok.alive=false;endMoveUi();if(m.once&&!tok.stopped)tip(`<strong>${m.n}</strong> done.`);}
 }
-function endMoveUi(){S.stop();$('npLyric').innerHTML='';setLook('');$('nowPlay').classList.remove('open');$('npPic').replaceChildren();mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.remove('on'));}
+function endMoveUi(){if(oledSession)sendOledMove(0);S.stop();$('npLyric').innerHTML='';setLook('');$('nowPlay').classList.remove('open');$('npPic').replaceChildren();mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.remove('on'));}
 function stopMove(){const tok=show;if(!tok)return;tok.alive=false;tok.stopped=true;show=null;glides.clear();endMoveUi();
  // Freeze every gliding joint where it is: a zero press ends the glide on the arm.
  if(tok.real&&real&&LIVE)for(let i=0;i<6;i++)if(state.joints[i].verified&&state.held&&state.held[i])raw('/api/press',{revision:state.revision,owner,slot:i,direction:0}).catch(()=>{});}
