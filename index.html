@@ -756,7 +756,7 @@ if(REMOTE){
   if(!qrDlg.open)qrDlg.showModal();
   qrStatus.textContent='Generating code…';
   try{
-   const {default:qrcode}=await import('./vendor/qrcode.mjs?v=2.0.4');
+   const {default:qrcode}=await import('./vendor/qrcode-module.js?v=2.0.4');
    if(!qrDlg.open)return;
    const qr=qrcode(0,'M');
    qr.addData(privateUrl());
