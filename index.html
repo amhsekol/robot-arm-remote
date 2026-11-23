@@ -254,6 +254,8 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
 .crow .save{min-height:44px;border-radius:12px;border:0;background:var(--c);color:#111;font:inherit;font-weight:800}
 .icon.snd svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .hudl .icon{width:36px;height:36px;font-size:1rem;padding:0;display:inline-grid;place-items:center;border-radius:999px;border:1px solid oklch(100% 0 0 / .25);background:oklch(0% 0 0 / .35);color:#fff;pointer-events:auto}
+.hudl #camBtn{width:44px;height:44px}
+.hudl .av-controls{display:flex;align-items:center;gap:6px}
 @media (prefers-reduced-motion:reduce){.stage.shake,.arm .spin,.arm .sway,.arm.look-disco #seg1,.arm.look-disco #seg2,.arm.look-disco #seg3{animation:none}}
 </style>
 </head>
@@ -287,7 +289,7 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
    <g id="fx"></g>
   </svg>
   <div class="hud">
-   <div class="hudl"><span class="pill" id="mode" role="status"><i></i><span id="modeText">Practice</span></span><span class="score" id="score">★ 0</span><span style="display:flex;gap:6px"><button class="icon snd" id="sndBtn" aria-label="Sound"></button><button class="icon snd" id="camBtn" aria-label="Camera off. Tap to show the camera." aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button></span><span class="pill" id="camPill" hidden><i></i><span id="camText">Camera: waiting</span></span></div>
+   <div class="hudl"><span class="pill" id="mode" role="status"><i></i><span id="modeText">Practice</span></span><span class="score" id="score">★ 0</span><span class="av-controls"><button class="icon snd" id="sndBtn" aria-label="Sound"></button><button class="icon snd" id="camBtn" aria-label="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button></span><span class="pill" id="camPill" hidden><i></i><span id="camText">Camera: waiting</span></span></div>
    <svg class="compass" viewBox="0 0 74 74" aria-hidden="true">
     <circle cx="37" cy="37" r="30" fill="none" stroke="oklch(100% 0 0 / .18)" stroke-width="2"/>
     <circle id="cBall" r="5" fill="var(--c5)"/>
@@ -345,10 +347,18 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
  <p>Near the arm: join phone Wi-Fi <strong>RobotArm-Test</strong> (password <strong>ArmTest-7284</strong>), then open <strong>http://192.168.4.1</strong>.</p>
 </div></dialog>
 
+<dialog id="pairDlg" aria-labelledby="pairTitle"><form class="sheet" id="pairForm">
+ <header><h2 id="pairTitle">Connect your arm camera</h2><button type="button" class="icon" data-close aria-label="Close">✕</button></header>
+ <p>On a device that is already connected to the arm, open Settings and tap <strong>Copy private arm link</strong>. Transfer the link privately to this phone, then paste it below.</p>
+ <label class="f">Private arm link<input id="pairLink" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required placeholder="Paste your full arm link"></label>
+ <button type="submit" class="btn primary">Connect camera</button>
+ <p id="pairError" class="msg error" role="alert" hidden></p>
+</form></dialog>
 <dialog id="setupDlg" aria-labelledby="setupTitle"><div class="sheet">
  <header><h2 id="setupTitle">Settings</h2><button class="icon" data-close aria-label="Close">✕</button></header>
  <p>For setting up the real arm. You don't need this to play.</p>
  <div class="conn"><span id="connectionText">Practice mode</span><button class="btn" id="reconnect" hidden>Reconnect</button></div>
+ <div class="row" id="copyPairRow" hidden><button class="btn" id="copyPair" type="button">Copy private arm link</button><span class="msg" id="copyPairStatus" role="status"></span></div>
  <dl><dt>Arm</dt><dd id="firmwareStatus">Locked</dd><dt>Signal check</dt><dd id="offStatus">Not checked</dd><dt>Saved settings</dt><dd id="settingsStatus">Not loaded</dd><dt>Last command</dt><dd id="commandStatus">None</dd></dl>
  <div class="row"><button class="btn" id="check">Check signals are off</button></div>
  <details><summary>Joint setup</summary>
@@ -388,7 +398,7 @@ const ON_DEVICE=/*DEVICE_MODE*/false, $=id=>document.getElementById(id);
 const LINK_RE=/^[a-f0-9]{12}\.[a-f0-9]{64}$/;
 function readLink(){
  const m=(location.hash.match(/arm=([a-f0-9.]+)/)||[])[1];
- if(m&&LINK_RE.test(m)){try{localStorage.setItem('armLink',m);}catch{}try{history.replaceState(null,'',location.pathname+location.search);}catch{}return m;}
+ if(m&&LINK_RE.test(m)){try{localStorage.setItem('armLink',m);history.replaceState(null,'',location.pathname+location.search);}catch{}return m;}
  try{const v=localStorage.getItem('armLink');if(v&&LINK_RE.test(v))return v;}catch{}
  return '';
 }
@@ -701,8 +711,34 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keyup',e=>{const b=keysDown.get(e.code);if(!b)return;keysDown.delete(e.code);releaseBtn(b);});
 // ---------- live HUAQUE camera from the arm (internet link only) ----------
 let camOn=true;try{if(localStorage.getItem('avReset')!=='1'){localStorage.removeItem('camOn');localStorage.removeItem('armSound');localStorage.setItem('avReset','1');}camOn=localStorage.getItem('camOn')!=='0';}catch{}
-function camBtnShow(){const b=$('camBtn');b.hidden=!REMOTE;b.setAttribute('aria-pressed',String(camOn));b.setAttribute('aria-label',camOn?'Camera on. Tap to hide it.':'Camera off. Tap to show the camera.');b.style.opacity=camOn?1:.55;}
-camBtnShow();$('camBtn').onclick=()=>{camOn=!camOn;try{localStorage.setItem('camOn',camOn?'1':'0');}catch{}location.reload();};
+const camBtn=$('camBtn');
+camBtn.hidden=ON_DEVICE;
+if(REMOTE){
+ camBtn.setAttribute('aria-pressed',String(camOn));
+ camBtn.setAttribute('aria-label',camOn?'Camera on. Tap to hide it.':'Camera off. Tap to show the camera.');
+ camBtn.style.opacity=camOn?1:.55;
+}else camBtn.setAttribute('aria-label','Camera: connect your arm');
+camBtn.onclick=()=>{
+ if(!REMOTE){if(!ON_DEVICE)$('pairDlg').showModal();return;}
+ camOn=!camOn;try{localStorage.setItem('camOn',camOn?'1':'0');}catch{}location.reload();
+};
+$('pairDlg').addEventListener('close',()=>{$('pairForm').reset();$('pairError').hidden=true;});
+$('pairForm').onsubmit=e=>{
+ e.preventDefault();
+ let m='';
+ try{const u=new URL($('pairLink').value.trim());if(u.origin===location.origin&&u.hash.startsWith('#arm='))m=u.hash.slice(5);}catch{}
+ if(!LINK_RE.test(m)){$('pairError').textContent='Paste the full private arm link for this website, including the #arm= part.';$('pairError').hidden=false;return;}
+ try{localStorage.setItem('camOn','1');}catch{}
+ location.hash='arm='+m;
+ location.reload();
+};
+if(REMOTE){
+ $('copyPairRow').hidden=false;
+ $('copyPair').onclick=async()=>{
+  try{await navigator.clipboard.writeText(location.origin+location.pathname+'#arm='+LINK);$('copyPairStatus').textContent='Copied. Keep this link private.';}
+  catch{$('copyPairStatus').textContent='Couldn’t copy. Open this controller in your browser and try again.';}
+ };
+}
 if(REMOTE&&camOn){
  const s=document.createElement('script');s.src='camlink.js?v=arm-camera-1';
  const st=$('stage'),pill=$('camPill'),txt=$('camText'),img=$('cami');
@@ -768,8 +804,9 @@ $('cabHelp').onclick=()=>{release();$('helpDlg').showModal();};
 $('goLand').onclick=goLandscape;$('goSimple').onclick=()=>setDrive(false);
 setInterval(syncCab,1000);
 let autoDrive=true;try{autoDrive=localStorage.getItem('cabView')!=='0';}catch{}
-window.__armDrive=on=>{if(on&&autoDrive&&!document.body.classList.contains('drive'))setDrive(true);};
-if(autoDrive&&(REMOTE||matchMedia('(pointer:coarse)').matches))setDrive(true);
+const phonePortrait=()=>matchMedia('(orientation:portrait) and (max-width:820px) and (pointer:coarse)').matches;
+window.__armDrive=on=>{if(on&&autoDrive&&!phonePortrait()&&!document.body.classList.contains('drive'))setDrive(true);};
+if(autoDrive&&!phonePortrait()&&(REMOTE||matchMedia('(pointer:coarse)').matches))setDrive(true);
 
 // ---------- moves (presets) ----------
 // Values are -1..1 per joint in button terms: Turn + right, Lift + up, Bend + down,
