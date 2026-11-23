@@ -191,9 +191,10 @@ body.drive .side{display:flex}
 .mtile i{grid-area:2/2;font-style:normal;color:var(--muted)}
 .mtile .dots{grid-area:2/1;align-self:center}
 .move-art{display:block;width:26px;height:26px}
+canvas.move-art{image-rendering:pixelated;border-radius:6px}
 #npPic{display:grid;place-items:center;flex:none}
 #npPic .move-art{width:var(--move-art-size);height:var(--move-art-size)}
-#npPic canvas.move-art{image-rendering:pixelated;border-radius:16px}
+#npPic canvas.move-art{border-radius:16px}
 .mtile .dots{display:flex;gap:4px}.mtile .dots span{width:8px;height:8px;border-radius:50%;background:var(--c);opacity:.25}.mtile .dots span.u{opacity:1}
 .mtile.on{background:var(--c2);color:oklch(18% .02 85)}.mtile.on i{color:oklch(30% .03 85)}
 .mtile:active{transform:scale(.97)}
@@ -406,6 +407,7 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
  <p class="msg" id="message" role="status" aria-live="polite"></p>
 </div></dialog>
 
+<script src="move-scenes.js?v=1"></script>
 <script>
 (() => {
 'use strict';
@@ -920,50 +922,41 @@ function moveArtBody(m){
  return `<rect x="1" y="1" width="30" height="30" rx="8" fill="${bg}" stroke="${color}" stroke-opacity=".75"/>${ink||`<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`}`;
 }
 const moveArt=m=>`<svg class="move-art" viewBox="0 0 32 32" aria-hidden="true">${moveArtBody(m)}</svg>`;
-// A low-resolution canvas produces real bitmap pixels, not a scaled vector.
-// Motion profiles use short stepped poses. Calls use the choreography clock.
-const PIXEL_MOTION={
- 'Home':'settle','Wave hello':'wave','Nod yes':'nod','Shake no':'shake','Look around':'scan',
- 'Radar scan':'radar','Claw snap':'snap','Pick and place':'carry','Excavator dig':'dig',
- 'Dance':'dance','Disco spin':'spin','Stretch':'stretch','Bow':'bow','Screwdriver':'twist',
- 'Pour a drink':'pour','Stir the pot':'orbit','Draw a circle':'orbit','Figure eight':'eight',
- 'Hammer':'hammer','Swim':'swim','Snake':'coil','Peek-a-boo':'peek','Rocket launch':'rocket',
- 'Sleepy':'breathe','Guard dog':'listen','Row Your Boat':'sail','Wheels on the Bus':'roll',
- 'Baa Baa Black Sheep':'hop','Twinkle Twinkle':'twinkle','Jingle Bells':'wave',
- 'Happy Birthday':'twinkle','Mountain King':'rise','Für Elise':'keys',
- 'Johny Johny Yes Papa':'nod','Ode to Joy':'heartbeat'
-};
-const PIXEL_POSE={
- settle:[[0,-2],[0,-1],[0,0],[0,0]],wave:[[0,0,-14],[0,-1,0],[0,0,14],[0,-1,0]],
- nod:[[0,-2],[0,0,5],[0,2,9],[0,0,5]],shake:[[-2,0],[0,0],[2,0],[0,0]],
- scan:[[-2,0,-6],[0,0],[2,0,6],[0,0]],radar:[[0,0,-18],[0,0,-5],[0,0,9],[0,0,19],[0,0,9],[0,0,-5]],
- snap:[[0,0],[0,0,0,.82,1],[0,0,0,1.08,1],[0,0]],
- carry:[[-3,2],[-3,-2],[3,-2],[3,2]],dig:[[0,-1,-12],[-2,2,-2],[1,1,12],[2,-2,2]],
- dance:[[-2,1,-10],[0,-2],[2,1,10],[0,-2]],spin:[[0,0],[0,0,0,.62,1],[0,0,0,-1,1],[0,0,0,.62,1]],
- stretch:[[0,0],[0,0,0,.87,.87],[0,0,0,1.08,1.08],[0,0]],
- bow:[[0,-1],[1,1,12],[2,2,18],[1,1,12]],twist:[[0,0,-18],[0,0],[0,0,18],[0,0]],
- pour:[[0,0],[0,0,14],[1,1,24],[0,0,14]],orbit:[[0,-2],[2,0],[0,2],[-2,0]],
- eight:[[-2,0],[-2,-2],[0,0],[2,2],[2,0],[2,-2],[0,0],[-2,2]],
- hammer:[[0,-2,-19],[0,-2,-19],[1,2,15],[0,1,5]],swim:[[-2,1,-5],[0,-1],[2,1,5],[0,-1]],
- coil:[[0,0],[0,0,0,1,1,2],[0,0],[0,0,0,1,1,-2]],
- listen:[[0,0],[0,0,-5],[0,0],[0,0,5]],peek:[[0,4],[0,4],[0,-2],[0,0]],
- rocket:[[0,3],[0,2],[0,-1],[0,-4],[0,-5],[0,-1]],
- breathe:[[0,0],[0,0,0,.95,.9],[0,0,0,.9,.84],[0,0,0,.95,.9]],
- sail:[[-2,0,-6],[0,-1],[2,0,6],[0,-1]],roll:[[-3,0],[-1,-1],[1,0],[3,-1],[1,0],[-1,-1]],
- hop:[[0,2],[0,-2],[0,-3],[0,0]],twinkle:[[0,0,0,.9,.9],[0,0],[0,0,0,1.08,1.08],[0,0]],
- rise:[[0,2],[0,0],[0,-2],[0,0]],keys:[[-1,0,-4],[0,1],[1,0,4],[0,1]],
- heartbeat:[[0,0],[0,0,0,1.1,1.1],[0,0],[0,0,0,1.07,1.07],[0,0],[0,0]]
-};
+// Draw to actual bitmap pixels. Animal mouth poses remain sound-cued.
+function newMoveCanvas(){
+ const c=document.createElement('canvas');c.width=c.height=32;
+ c.className='move-art';c.setAttribute('aria-hidden','true');return c;
+}
+function paintSceneFrame(m,cx,f){
+ const [accent]=MOVE_ART[m.n];cx.fillStyle=accent;cx.fillRect(0,0,32,32);
+ cx.fillStyle='#18253b';cx.fillRect(1,1,30,30);
+ cx.fillStyle='#1b2940';for(let row=2;row<30;row+=5)cx.fillRect(1,row,30,2);
+ return window.paintMoveScene?.(m.n,cx,f);
+}
 function playMoveBitmap(m){
- const host=$('npPic'),c=document.createElement('canvas'),sprite=document.createElement('canvas');
- c.width=c.height=sprite.width=sprite.height=32;c.className='move-art';c.setAttribute('aria-hidden','true');
- const cx=c.getContext('2d'),sx=sprite.getContext('2d');
- if(!cx||!sx)return;
- const [accent,,,bg='#192b37']=MOVE_ART[m.n],poses=PIXEL_POSE[PIXEL_MOTION[m.n]]||PIXEL_POSE.dance;
+ const host=$('npPic'),c=newMoveCanvas(),cx=c.getContext('2d');
+ if(!cx)return;
+ const still=matchMedia('(prefers-reduced-motion: reduce)');
+ if(paintSceneFrame(m,cx,0)){
+  host.replaceChildren(c);
+  const start=performance.now();let shown=0;
+  const tick=now=>{
+   if(!host.contains(c))return;
+   const f=still.matches?0:Math.floor((now-start)/105)%16;
+   if(f!==shown){shown=f;paintSceneFrame(m,cx,f);}
+   requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return;
+ }
+ const snake=m.n==='Snake';
+ if(!snake&&m.n!=='Guard dog')return; // Keep the static icon if the scene asset didn't load.
+ const sprite=newMoveCanvas(),sx=sprite.getContext('2d');
+ if(!sx)return;
+ const [accent,,,bg='#192b37']=MOVE_ART[m.n];
  const [base,call]=[new Image(),new Image()];
  const ink=moveArtBody(m).replace(/^<rect[^>]*\/>/,'');
  const url=body=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">${body}</svg>`);
- const still=matchMedia('(prefers-reduced-motion: reduce)');
  base.onload=()=>{
   if(!host.contains(fallback))return;
   host.replaceChildren(c);
@@ -972,14 +965,15 @@ function playMoveBitmap(m){
   let last=-1;
   const frame=now=>{
    if(!host.contains(c))return;
-   const phase=still.matches?0:Math.floor((now-start)/155)%poses.length;
+   const phase=still.matches?0:Math.floor((now-start)/155)%4;
    const calling=!still.matches&&!!show?.calling&&call.complete&&call.naturalWidth>0;
-   const key=calling?poses.length:phase;
+   const key=calling?4:phase;
    if(key!==last){
     last=key;
-    const [x=0,y=0,a=0,w=1,h=1,coil=0]=calling?[0,-1]:poses[phase];
+    const coil=snake&&!calling?[0,2,0,-2][phase]:0;
+    const angle=snake||calling?0:[0,-5,0,5][phase];
     sx.clearRect(0,0,32,32);sx.save();
-    sx.translate(16+x,16+y);sx.rotate(a*Math.PI/180);sx.scale(w,h);
+    sx.translate(16,calling?15:16);sx.rotate(angle*Math.PI/180);
     sx.drawImage(calling?call:base,-16,-16,32,32);sx.restore();
     cx.fillStyle=accent;cx.fillRect(0,0,32,32);
     cx.fillStyle=bg;cx.fillRect(1,1,30,30);
@@ -1224,6 +1218,8 @@ function addTile(m,k){
  const used=J.map((_j,i)=>fr.some(p=>p[Object.keys(JK)[i]]!==undefined));
  const t=document.createElement('button');t.className='mtile'+(m.sing?' song':m.cues?' char':'');t.dataset.testid='move-'+k;t.dataset.k=k;
  t.innerHTML=`<i aria-hidden="true">${moveArt(m)}</i><b>${esc(m.n)}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
+ const thumb=newMoveCanvas(),thumbCtx=thumb.getContext('2d');
+ if(thumbCtx&&paintSceneFrame(m,thumbCtx,0))t.firstElementChild.replaceChildren(thumb);
  t.setAttribute('aria-label',`${m.n}. ${m.sing?'Sing-along song.':m.once?'Goes once.':'Repeats until Stop.'}`);
  t.onclick=()=>{closeMoves();if(show&&show.k===k){stopMove();return;}playMove(k);};
  mgrid.append(t);return t;}
