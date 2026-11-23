@@ -186,10 +186,10 @@ body.drive .side{display:flex}
 .moves header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .moves header h2{font-size:var(--lg);flex:1}.moves header p{font-size:var(--xs);color:var(--muted)}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
-.mtile{position:relative;min-height:70px;border:0;border-radius:14px;background:var(--panel2);text-align:left;padding:10px 10px 8px;display:grid;align-content:space-between;gap:6px;box-shadow:inset 0 -3px 0 oklch(0% 0 0 / .25)}
-.mtile b{font-size:var(--sm);line-height:1.15;padding-right:18px}
-.mtile i{font-style:normal;font-size:.6875rem;color:var(--muted);font-weight:700;position:absolute;right:9px;top:8px}
-.mtile b{padding-right:26px}
+.mtile{position:relative;min-height:76px;border:0;border-radius:14px;background:var(--panel2);text-align:left;padding:10px 10px 8px;display:grid;grid-template-columns:minmax(0,1fr) 26px;grid-template-rows:1fr 26px;gap:6px;box-shadow:inset 0 -3px 0 oklch(0% 0 0 / .25)}
+.mtile b{grid-area:1/1/2/3;font-size:var(--sm);line-height:1.15;overflow-wrap:anywhere}
+.mtile i{grid-area:2/2;font-style:normal;color:var(--muted)}
+.mtile .dots{grid-area:2/1;align-self:center}
 .move-art{display:block;width:26px;height:26px}
 #npPic{display:grid;place-items:center;flex:none}
 #npPic .move-art{width:var(--move-art-size);height:var(--move-art-size)}
