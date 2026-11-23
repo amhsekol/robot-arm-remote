@@ -256,6 +256,9 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
 .hudl .icon{width:36px;height:36px;font-size:1rem;padding:0;display:inline-grid;place-items:center;border-radius:999px;border:1px solid oklch(100% 0 0 / .25);background:oklch(0% 0 0 / .35);color:#fff;pointer-events:auto}
 .hudl #camBtn{width:44px;height:44px}
 .hudl .av-controls{display:flex;align-items:center;gap:6px}
+.hudl #pairPhoneBtn{width:auto;height:44px;padding:0 10px;white-space:nowrap;font-size:var(--xs);font-weight:700}
+#phoneQr{justify-self:center;width:min(300px,100%);aspect-ratio:1}
+#phoneQr svg{display:block;width:100%;height:auto}
 @media (prefers-reduced-motion:reduce){.stage.shake,.arm .spin,.arm .sway,.arm.look-disco #seg1,.arm.look-disco #seg2,.arm.look-disco #seg3{animation:none}}
 </style>
 </head>
@@ -289,7 +292,7 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
    <g id="fx"></g>
   </svg>
   <div class="hud">
-   <div class="hudl"><span class="pill" id="mode" role="status"><i></i><span id="modeText">Practice</span></span><span class="score" id="score">★ 0</span><span class="av-controls"><button class="icon snd" id="sndBtn" aria-label="Sound"></button><button class="icon snd" id="camBtn" aria-label="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button></span><span class="pill" id="camPill" hidden><i></i><span id="camText">Camera: waiting</span></span></div>
+   <div class="hudl"><span class="pill" id="mode" role="status"><i></i><span id="modeText">Practice</span></span><span class="score" id="score">★ 0</span><span class="av-controls"><button class="icon snd" id="sndBtn" aria-label="Sound"></button><button class="icon snd" id="camBtn" aria-label="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button><button class="icon" id="pairPhoneBtn" type="button" hidden>Pair phone</button></span><span class="pill" id="camPill" hidden><i></i><span id="camText">Camera: waiting</span></span></div>
    <svg class="compass" viewBox="0 0 74 74" aria-hidden="true">
     <circle cx="37" cy="37" r="30" fill="none" stroke="oklch(100% 0 0 / .18)" stroke-width="2"/>
     <circle id="cBall" r="5" fill="var(--c5)"/>
@@ -349,16 +352,23 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
 
 <dialog id="pairDlg" aria-labelledby="pairTitle"><form class="sheet" id="pairForm">
  <header><h2 id="pairTitle">Connect your arm camera</h2><button type="button" class="icon" data-close aria-label="Close">✕</button></header>
- <p>On a device that is already connected to the arm, open Settings and tap <strong>Copy private arm link</strong>. Transfer the link privately to this phone, then paste it below.</p>
+ <p>On a device already connected to the arm, tap <strong>Pair phone</strong> and scan the code with your phone camera. Or copy the private arm link from Settings and paste it below.</p>
  <label class="f">Private arm link<input id="pairLink" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required placeholder="Paste your full arm link"></label>
  <button type="submit" class="btn primary">Connect camera</button>
  <p id="pairError" class="msg error" role="alert" hidden></p>
 </form></dialog>
+<dialog id="phoneQrDlg" aria-labelledby="phoneQrTitle"><div class="sheet">
+ <header><h2 id="phoneQrTitle">Pair your phone</h2><button type="button" class="icon" data-close aria-label="Close">✕</button></header>
+ <p>Open the camera app on your phone, point it at this code, then tap the link it shows.</p>
+ <div id="phoneQr"></div>
+ <p id="phoneQrStatus" class="msg" role="status"></p>
+ <p>Keep this code private. It grants access to your arm’s camera and controls.</p>
+</div></dialog>
 <dialog id="setupDlg" aria-labelledby="setupTitle"><div class="sheet">
  <header><h2 id="setupTitle">Settings</h2><button class="icon" data-close aria-label="Close">✕</button></header>
  <p>For setting up the real arm. You don't need this to play.</p>
  <div class="conn"><span id="connectionText">Practice mode</span><button class="btn" id="reconnect" hidden>Reconnect</button></div>
- <div class="row" id="copyPairRow" hidden><button class="btn" id="copyPair" type="button">Copy private arm link</button><span class="msg" id="copyPairStatus" role="status"></span></div>
+ <div class="row" id="copyPairRow" hidden><button class="btn" id="showPhoneQr" type="button">Show phone pairing QR</button><button class="btn" id="copyPair" type="button">Copy private arm link</button><span class="msg" id="copyPairStatus" role="status"></span></div>
  <dl><dt>Arm</dt><dd id="firmwareStatus">Locked</dd><dt>Signal check</dt><dd id="offStatus">Not checked</dd><dt>Saved settings</dt><dd id="settingsStatus">Not loaded</dd><dt>Last command</dt><dd id="commandStatus">None</dd></dl>
  <div class="row"><button class="btn" id="check">Check signals are off</button></div>
  <details><summary>Joint setup</summary>
@@ -734,9 +744,26 @@ $('pairForm').onsubmit=e=>{
 };
 if(REMOTE){
  $('copyPairRow').hidden=false;
+ $('pairPhoneBtn').hidden=false;
+ const privateUrl=()=>location.origin+location.pathname+'#arm='+LINK;
  $('copyPair').onclick=async()=>{
-  try{await navigator.clipboard.writeText(location.origin+location.pathname+'#arm='+LINK);$('copyPairStatus').textContent='Copied. Keep this link private.';}
+  try{await navigator.clipboard.writeText(privateUrl());$('copyPairStatus').textContent='Copied. Keep this link private.';}
   catch{$('copyPairStatus').textContent='Couldn’t copy. Open this controller in your browser and try again.';}
+ };
+ const qrDlg=$('phoneQrDlg'),qrBox=$('phoneQr'),qrStatus=$('phoneQrStatus');
+ qrDlg.addEventListener('close',()=>{qrBox.replaceChildren();qrStatus.textContent='';});
+ $('pairPhoneBtn').onclick=$('showPhoneQr').onclick=async()=>{
+  if(!qrDlg.open)qrDlg.showModal();
+  qrStatus.textContent='Generating code…';
+  try{
+   const {default:qrcode}=await import('./vendor/qrcode.mjs?v=2.0.4');
+   if(!qrDlg.open)return;
+   const qr=qrcode(0,'M');
+   qr.addData(privateUrl());
+   qr.make();
+   qrBox.innerHTML=qr.createSvgTag({cellSize:6,margin:24,scalable:true,alt:'Private phone pairing QR code'});
+   qrStatus.textContent='';
+  }catch{if(qrDlg.open)qrStatus.textContent='Could not show the QR code. Use Copy private arm link instead.';}
  };
 }
 if(REMOTE&&camOn){
