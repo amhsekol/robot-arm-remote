@@ -189,6 +189,12 @@ body.drive .side{display:flex}
 .mtile{position:relative;min-height:70px;border:0;border-radius:14px;background:var(--panel2);text-align:left;padding:10px 10px 8px;display:grid;align-content:space-between;gap:6px;box-shadow:inset 0 -3px 0 oklch(0% 0 0 / .25)}
 .mtile b{font-size:var(--sm);line-height:1.15;padding-right:18px}
 .mtile i{font-style:normal;font-size:.6875rem;color:var(--muted);font-weight:700;position:absolute;right:9px;top:8px}
+.mtile b{padding-right:26px}
+.move-art{display:block;width:26px;height:26px}
+#npPic{display:grid;place-items:center;flex:none}
+#npPic .move-art{width:42px;height:42px}
+.nowplay{max-width:calc(100vw - 16px)}
+#npName{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .mtile .dots{display:flex;gap:4px}.mtile .dots span{width:8px;height:8px;border-radius:50%;background:var(--c);opacity:.25}.mtile .dots span.u{opacity:1}
 .mtile.on{background:var(--c2);color:oklch(18% .02 85)}.mtile.on i{color:oklch(30% .03 85)}
 .mtile:active{transform:scale(.97)}
@@ -320,7 +326,7 @@ body.drive .stage::after{content:"";position:fixed;inset:0;pointer-events:none;z
  <div class="side r" id="sideR"></div>
  <button class="movesbtn" id="movesBtn" aria-haspopup="dialog">MOVES</button>
  <p class="lyric" id="npLyric" aria-live="polite"></p>
- <div class="nowplay" id="nowPlay" role="status"><span>▶ <span id="npName"></span></span><span class="lp" id="npLoop"></span><button id="npStop">Stop</button></div>
+ <div class="nowplay" id="nowPlay" role="status"><span id="npPic" aria-hidden="true"></span><span id="npName"></span><span class="lp" id="npLoop"></span><button id="npStop">Stop</button></div>
 </div>
 <div class="stopbar"><button id="stop">STOP</button></div>
 
@@ -870,6 +876,54 @@ const MOVES=[
  {n:'Guard dog',loop:[F(-.7,.1,-.2,0,0,-1,1500),F(0,_,_,_,_,_,800),F(.7,_,_,_,_,_,1500),F(.2,-.2,.3,.2,0,1,300),F(_,_,_,_,_,-1,300)]}
 ];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// Each move has a compact illustrated badge. The same artwork follows it
+// from its tile to Now Playing and replaces generic costumes on the arm.
+const MOVE_ART={
+ 'Home':['#67b7fd','M5 14 16 5l11 9M8 13v13h16V13M14 26v-7h4v7'],
+ 'Wave hello':['#ffcb6c','M10 17V8q0-4 3-2v8-9q1-4 4-1v10-7q2-4 4 0v8-4q3-3 4 0v9a8 8 0 0 1-8 8h-2l-9-8q-3-4 1-4z'],
+ 'Nod yes':['#87efad','M5 17l5 5L21 9M25 8v17m-3-3 3 3 3-3'],
+ 'Shake no':['#ff8aa2','M12 12l8 8m0-8-8 8M8 8l-5 5 5 5m16-4 5 5-5 5'],
+ 'Look around':['#e8ad66','M6 9l5 3q5-4 10 0l5-3v12q-9 10-20 0zm4 8h.1m11 0h.1M14 22l2 2 2-2'],
+ 'Radar scan':['#71e7de','M15 16 26 5M16 5a11 11 0 1 0 11 11m-11-6a6 6 0 1 0 6 6m-6 0h.1'],
+ 'Claw snap':['#ff827b','M16 28v-7m0 0-8-4-4-7 5-4 3 7 4 3m0 5 8-4 4-7-5-4-3 7-4 3'],
+ 'Pick and place':['#ffc27a','M5 19h8v8H5zM19 5h8v8h-8zM8 15V9h6m10 8v6h-6'],
+ 'Excavator dig':['#ffd064','M5 22h13v5H5zM8 22V12h6v10m0-9 8-7 5 11m-4 0 7 2-2 5h-5z'],
+ 'Dance':['#ff9bc6','M12 23V8l14-3v15M12 23a4 3 0 1 1-8 0 4 3 0 1 1 8 0Zm14-3a4 3 0 1 1-8 0 4 3 0 1 1 8 0ZM12 12l14-3'],
+ 'Disco spin':['#c8abff','M16 4v3m-10 11a10 10 0 1 0 20 0 10 10 0 0 0-20 0Zm0 0h20M16 8c-5 4-5 16 0 20m0-20c5 4 5 16 0 20M8 13h16M8 23h16'],
+ 'Stretch':['#ffe287','M13 19 5 27m0-6v6h6m8-14 8-8m-6 0h6v6M10 10l12 12M10 10H5m5 0V5m12 17h5m-5 0v5'],
+ 'Bow':['#ffd064','M5 9l6 3 5-7 5 7 6-3-3 13H8zm4 17h14'],
+ 'Screwdriver':['#f4b87c','M5 25l4 2 10-10-5-5L4 22zm11-11 9-9 3-1-1 3-9 9'],
+ 'Pour a drink':['#89d4ff','M5 6h10l-2 5 4 3-9 6-5-6 2-4zm15 9 3 3m-3 3 2 6h5l2-6'],
+ 'Stir the pot':['#ffad88','M7 13h18l-2 11H9zm0 3H4m21 0h3m-13-3 7-8m-9 23h6'],
+ 'Draw a circle':['#88caff','M16 5A11 11 0 1 0 27 16m0-8v8h-8'],
+ 'Figure eight':['#c8abff','M16 16c-3-4-4-7-8-7a7 7 0 0 0 0 14c4 0 5-3 8-7s4-7 8-7a7 7 0 0 1 0 14c-4 0-5-3-8-7z'],
+ 'Hammer':['#c1cfff','M5 26l10-10m-4-3 7-7 8 8-7 7zm7-7 2-2 8 8-2 2'],
+ 'Swim':['#68d6ff','',`<path d="M12 17 4 10v14z" fill="#fd8050"/><path d="M9 17c7-10 17-9 20 0-3 9-13 10-20 0Z" fill="#ffc35a"/><path d="M16 11q-3 6 0 12" stroke="#ff9045" stroke-width="2"/><circle cx="24" cy="15" r="1.8" fill="#213147"/><circle cx="28" cy="7" r="1.5" fill="#b8ecff"/>`],
+ 'Snake':['#82ef91','',`<path d="M17 17c-9 2-12 5-11 8 1 4 18 4 20 0 2-4-8-6-12-3" fill="none" stroke="#2eb96c" stroke-width="4.5" stroke-linecap="round"/><path d="M20 18c-5 0-10-4-9-9 0-3 3-4 5-2 3-5 9-4 11 0 4 4-1 10-5 11Z" fill="#43ce72"/><path d="M15 10c3-5 9-6 11-1l-2 5h-5Z" fill="#a9ed6f"/><path d="M21 14v5l-1.5 1.5m1.5-1.5 1.5 1.5" stroke="#ff7097" stroke-width="1.1" fill="none" stroke-linecap="round"/><circle cx="18.6" cy="10.3" r="1.3" fill="#123a33"/><circle cx="24" cy="9.5" r="1.3" fill="#123a33"/>`],
+ 'Peek-a-boo':['#e1cfff','',`<path d="M6 27V14a10 10 0 0 1 20 0v13l-5-4-5 4-5-4z" fill="#e8dbff"/><ellipse cx="13" cy="14" rx="1.4" ry="2.4" fill="#392857"/><ellipse cx="20" cy="14" rx="1.4" ry="2.4" fill="#392857"/><ellipse cx="16.5" cy="20" rx="2" ry="1.5" fill="#9868dc"/>`],
+ 'Rocket launch':['#9eceff','',`<path d="M12 17 7 23l6-1m7-5 5 6-6-1" fill="#ff6d78"/><path d="M16 4c6 3 7 9 3 18h-6c-4-9-3-15 3-18" fill="#f5f7ff"/><path d="M16 4q4 2 5 6H11q1-4 5-6" fill="#ff6d78"/><circle cx="16" cy="14" r="2.9" fill="#62caff"/><path d="M13 23h6q0 5-3 6-3-1-3-6" fill="#ffd164"/>`],
+ 'Sleepy':['#d8bcff','M25 19A11 11 0 0 1 12 5a11 11 0 1 0 13 14Zm-5-9h7l-7 6h7'],
+ 'Guard dog':['#ffc388','',`<path d="M9 10 4 7 3 16l7 3m13-9 5-3 1 9-7 3" fill="#a87555"/><rect x="8" y="8" width="16" height="17" rx="8" fill="#eab288"/><ellipse cx="16" cy="21" rx="6" ry="4" fill="#ffdcba"/><path d="M13 19h6l-3 3z" fill="#492f30"/><circle cx="12.5" cy="15" r="1.3" fill="#492f30"/><circle cx="19.5" cy="15" r="1.3" fill="#492f30"/>`],
+ 'Twinkle Twinkle':['#ffe178','M16 4l4 8 9 1-7 6 2 9-8-4-8 4 2-9-7-6 9-1Z'],
+ 'Baa Baa Black Sheep':['#e1d9f9','M8 12q1-8 7-5 5-4 9 3 6 2 4 7-1 4-7 4H9q-8 0-6-5 1-3 5-4Zm3 9v6m12-6v6m-9-12h.1m7 0h.1'],
+ 'Johny Johny Yes Papa':['#ffad95','M5 7h22v14H16l-5 5v-5H5zm5 7h.1m6 0h.1m6 0h.1'],
+ 'Row Your Boat':['#85e5f1','M4 19h24l-5 6H9zm8 0V5l10 10H12m-7 13q3-2 6 0t6 0 6 0'],
+ 'Wheels on the Bus':['#ffd064','',`<path d="M5 10h21l2 5v8H4V12q0-2 1-2Z" fill="#ffc94e"/><path d="M7 12h5v5H7zm7 0h5v5h-5zm7 0h4l1.5 5H21z" fill="#6cc8ed"/><circle cx="9" cy="23" r="3" fill="#29384d"/><circle cx="23" cy="23" r="3" fill="#29384d"/>`],
+ 'Happy Birthday':['#ffb3d0','M6 19h20v8H6zm3 0v-5h14v5m-7-5V9m0-1c-4-3 0-5 0-5s4 3 0 5ZM6 23q3-3 6 0t7 0 7 0'],
+ 'Jingle Bells':['#ffd782','M6 22h20l-3-4v-5a7 7 0 0 0-14 0v5zm8 4a2 2 0 0 0 4 0'],
+ 'Ode to Joy':['#ff9dad','M16 26 6 16a5 5 0 0 1 10-5 5 5 0 0 1 10 5zM16 6V4'],
+ 'Für Elise':['#c6c7fa','M5 6h22v20H5zm5 0v20m6-20v20m6-20v20M10 6v10m6-10v10m6-10v10'],
+ 'Mountain King':['#9de3b6','M4 26 11 13l5 7 5-12 7 18Zm7-13 3 4m7-9 3 6']
+};
+function moveArtBody(m){
+ const [color,path,ink]=MOVE_ART[m.n]||MOVE_ART.Dance;
+ return `<rect x="1" y="1" width="30" height="30" rx="8" fill="#192b37" stroke="${color}" stroke-opacity=".75"/>${ink||`<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`}`;
+}
+const moveArt=m=>`<svg class="move-art" viewBox="0 0 32 32" aria-hidden="true">${moveArtBody(m)}</svg>`;
+function showMoveBadge(m,loop=''){
+ $('npPic').innerHTML=moveArt(m);
+ $('npName').textContent=m.n;$('npLoop').textContent=loop;$('nowPlay').classList.add('open');
+}
 // ---- animal shows: b = beat, p = pose (-1..1; h = mouth/claw: + open), d = glide length in beats ----
 const CLOSE={h:-.5},MOUTH=v=>({h:v});
 const CHAR={
@@ -1007,7 +1061,7 @@ function cueAt(c,T,B,tok){const ms=Math.max(0,(T-S.clock())*1000);
 function showStart(k){stopMove();release();const m=MOVES[k],tok={k,alive:true,loop:1,real:real,sent:[]};show=tok;glides.clear();
  if(tok.real&&real&&LIVE&&state.held)for(let i=0;i<6;i++){const h=state.held[i];if(h&&state.joints[i].verified){const v=vOfPulse(i,h);mv.cur[i]=v;J[i].v=picFor(i,v);tok.sent[i]=h;}}
  mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
- $('npName').textContent=m.n;$('npLoop').textContent='';$('nowPlay').classList.add('open');$('npLyric').innerHTML='';
+ showMoveBadge(m);$('npLyric').innerHTML='';
  setLook(m.look||'');if(tok.real&&real&&LIVE)raw('/api/speed',{revision:state.revision,owner,level:4}).catch(()=>{});
  tip(tok.real?`<strong>${m.n}.</strong> The real arm is performing. STOP ends it.`:`<strong>${m.n}</strong> (picture).`);
  requestAnimationFrame(showLoop);return tok;}
@@ -1036,7 +1090,7 @@ function addTile(m,k){
  const fr=m.cues?m.cues.map(c=>c.p||{}):m.sing?m.sing.cues.map(c=>c.p):[...(m.intro||[]),...m.loop].map(f=>Object.fromEntries(f.v.map((v,i)=>[Object.keys(JK)[i],v]).filter(e=>e[1]!==null&&e[1]!==undefined)));
  const used=J.map((_j,i)=>fr.some(p=>p[Object.keys(JK)[i]]!==undefined));
  const t=document.createElement('button');t.className='mtile'+(m.sing?' song':m.cues?' char':'');t.dataset.testid='move-'+k;t.dataset.k=k;
- t.innerHTML=`<i>${m.sing?'♪':k+1}</i><b>${esc(m.n)}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
+ t.innerHTML=`<i aria-hidden="true">${moveArt(m)}</i><b>${esc(m.n)}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
  t.setAttribute('aria-label',`${m.n}. ${m.sing?'Sing-along song.':m.once?'Goes once.':'Repeats until Stop.'}`);
  t.onclick=()=>{closeMoves();if(show&&show.k===k){stopMove();return;}playMove(k);};
  mgrid.append(t);return t;}
@@ -1077,14 +1131,14 @@ async function playMove(k){
  stopMove();release();if(canAuto())await ensureReal();const m=MOVES[k],tok={k,alive:true,loop:1,real:real};show=tok;
  mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.toggle('on',t.dataset.k==k));
  S.play(SONG[MOVE_SONG[k]]||SONG.happy,beatFx);setLook(LOOK[MOVE_SONG[k]]);costumeLoop();
- $('npName').textContent=m.n;$('npLoop').textContent=m.once?'':'loop 1';$('nowPlay').classList.add('open');
+ showMoveBadge(m,m.once?'':'loop 1');
  tip(real?`<strong>${m.n}.</strong> The real arm is doing it. Tap Stop to end.`:LIVE&&connected&&!state.firmwareLocked?`<strong>${m.n}</strong> on the picture only. Connect the arm to make it do it.`:`<strong>${m.n}</strong> (practice picture).`);
  if(tok.real)for(let i=0;i<6;i++){const h=state.held&&state.held[i];if(h&&state.joints[i].verified){mv.cur[i]=vOfPulse(i,h);J[i].v=picFor(i,mv.cur[i]);}else mv.cur[i]=0;}
  for(const f of m.intro||[]){if(!tok.alive)break;await goFrame(f,tok);}
  while(tok.alive){for(const f of m.loop){if(!tok.alive||(tok.real&&!real))break;await goFrame(f,tok);}if(m.once||(tok.real&&!real))break;tok.loop++;S.fx('level');$('npLoop').textContent=`loop ${tok.loop}`;}
  if(show===tok){show=null;tok.alive=false;endMoveUi();if(m.once&&!tok.stopped)tip(`<strong>${m.n}</strong> done.`);}
 }
-function endMoveUi(){S.stop();$('npLyric').innerHTML='';setLook('');$('nowPlay').classList.remove('open');mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.remove('on'));}
+function endMoveUi(){S.stop();$('npLyric').innerHTML='';setLook('');$('nowPlay').classList.remove('open');$('npPic').replaceChildren();mgrid.querySelectorAll('.mtile').forEach(t=>t.classList.remove('on'));}
 function stopMove(){const tok=show;if(!tok)return;tok.alive=false;tok.stopped=true;show=null;glides.clear();endMoveUi();
  // Freeze every gliding joint where it is: a zero press ends the glide on the arm.
  if(tok.real&&real&&LIVE)for(let i=0;i<6;i++)if(state.joints[i].verified&&state.held&&state.held[i])raw('/api/press',{revision:state.revision,owner,slot:i,direction:0}).catch(()=>{});}
@@ -1342,7 +1396,7 @@ function costume(name,x,y,a,len,t,op){
   case 'fish':return at(x,y,a,`<ellipse cx="2" cy="0" rx="14" ry="10" fill="#ff9d2e"/><path d="M-10 0l-12 ${-9+w*3}v${18-w*6}z" fill="#ff7a1a"/><path d="M-2 -10q6-8 12 0M-2 10q6 8 12 0" fill="#ffb35c"/>${eye(6,-4,2.8)}${jaws(op,12,`<path d="M12 -4q6 -1 8 3h-8z" fill="#ff6a3d"/>`,`<path d="M12 4q6 1 8 -3h-8z" fill="#ff6a3d"/>`,`<ellipse cx="15" cy="0" rx="${1+op*3}" ry="${.5+op*3}" fill="#6b1a00"/>`)}`);
   case 'owl':return at(x,y,a,`<ellipse cx="4" cy="0" rx="13" ry="12" fill="#8a6239"/>${eye(6,-5,4.5)}${eye(6,5,4.5)}<path d="M-7 -10l-6 -5 6 1zM-7 10l-6 5 6 -1z" fill="#8a6239"/>${jaws(op,14,`<path d="M14 -3l8 3h-8z" fill="#ffb02e"/>`,`<path d="M14 3l7 -3h-7z" fill="#e0901a"/>`)}`);
   case 'crab':return at(x,y,a,`<line x1="0" y1="-6" x2="-4" y2="-16" stroke="#e8343c" stroke-width="2"/><line x1="0" y1="6" x2="-4" y2="16" stroke="#e8343c" stroke-width="2"/>${eye(-4,-17,3)}${eye(-4,17,3)}`);
-  case 'smiley':return at(x,y,a,`<circle cx="4" cy="0" r="13" fill="#ffd34d"/>${eye(6,-5,2.5)}${eye(6,5,2.5)}${face('#ffd34d',14)}`);
+  case 'smiley':return show?`<g class="costume-move-art" transform="translate(${(x-16).toFixed(1)} ${(y-16).toFixed(1)})">${moveArtBody(MOVES[show.k])}</g>`:'';
   case 'cool':return at(x,y,a,`<circle cx="4" cy="0" r="13" fill="#ffd34d"/><rect x="3" y="-10" width="7" height="8" rx="2" fill="#111"/><rect x="3" y="2" width="7" height="8" rx="2" fill="#111"/>${face('#ffd34d',14)}`);
   case 'king':return at(x,y,a,`<circle cx="4" cy="0" r="12" fill="#ffd9b0"/><path d="M-8 -11l-10 -2 4 7 -4 6 4 6 -4 7 10 -2z" fill="#ffd34d" stroke="#b8860b" stroke-width="1.5"/>${eye(6,-5,2.4)}${eye(6,5,2.4)}${face('#ffd9b0',13)}`);
   case 'sunny':return at(x,y,a,`<circle cx="4" cy="0" r="12" fill="#ffd9b0"/><rect x="4" y="-9" width="6" height="7" rx="2" fill="#111"/><rect x="4" y="2" width="6" height="7" rx="2" fill="#111"/>${face('#ffd9b0',13)}`);
