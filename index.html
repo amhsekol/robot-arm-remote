@@ -1012,12 +1012,16 @@ function sendOledMove(id){
 // ---- animal shows: b = beat, p = pose (-1..1; h = mouth/claw: + open), d = glide length in beats ----
 const MOUTH=v=>({h:v});
 const CHAR={
- 'Snake':{song:'snake',look:'snake',len:8,cues:[
-  {b:0,p:{t:-.3,w:.3,l:.3,b:.1},d:3.5},
-  {b:1.4,jaw:.9,sfx:'hissCue',burst:'wiggle',n:6},
-  {b:4,p:{t:.3,w:-.3,l:.35,b:.05},d:3.5},{b:5,jaw:.9,sfx:'hissCue',burst:'wiggle',n:6},
-  {b:6.25,p:{l:.45,b:-.15,w:.35},d:.6},
-  {b:7,p:{l:.2,b:.3,w:-.1},jaw:1,d:.25,sfx:'hissCue',shake:1,burst:'wiggle',n:14,glow:'#4dff9a'}]},
+ // Snake: tongue + rattle = the claw vibrates fast for the whole rattle; hiss = rear back, mouth opens,
+ // lunge forward, one bite at the far point, pull back. Between those the claw holds still.
+ 'Snake':{song:'snake',look:'snake',len:10,cues:[
+  {b:0,p:{t:-.3,w:.3,l:.3,b:.1},d:3},
+  {b:1.25,flutter:2.5,sfx:'rattleCue',sd:2.5,burst:'wiggle',n:6},
+  {b:4,p:{t:.3,w:-.3,l:.3,b:.1},d:2.5},
+  {b:6,p:{l:.45,b:.4,w:-.3},d:.75,claw:'open',sfx:'hissLong',sd:2.4},
+  {b:7,p:{l:-.05,b:-.25,w:.2},d:.5,burst:'wiggle',n:8},
+  {b:8.3,claw:'bite',sfx:'snap',shake:1,burst:'wiggle',n:14,glow:'#4dff9a'},
+  {b:8.9,p:{l:.3,b:.1,w:0},d:1}]},
  'Guard dog':{song:'dog',look:'dog',len:8,cues:[
   {b:0,p:{t:-.25,l:.3,w:.1},d:2},
   {b:2,p:{t:.25},d:2},
@@ -1133,6 +1137,7 @@ function glideTo(p,dur,tok){const t0=performance.now();for(const [k,v] of Object
   glides.set(i,{from:J[i].v,to:picFor(i,vv),t0,t1:t0+Math.max(60,d*1000)});mv.cur[i]=vv;}}
 function showLoop(){if(!show)return;const n=performance.now();
  for(const [i,g] of glides){const k=Math.min(1,(n-g.t0)/(g.t1-g.t0)),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;J[i].v=g.from+(g.to-g.from)*e;if(k>=1)glides.delete(i);}
+ const f=show.flutter;if(f&&n<f.t1){const ph=((n-f.t0)/1000*RATTLE_HZ)%1;J[JK.h].v=picFor(JK.h,ph<.5?.35:-.15);}
  draw();game();requestAnimationFrame(showLoop);}
 // ---- real arm ----
 function realPose(p,tok){if(!(tok.real&&real&&LIVE))return;for(const [k,v] of Object.entries(p)){const i=JK[k];if(!state.joints[i].verified)continue;
@@ -1163,8 +1168,26 @@ function animateCall(c,T,tok){
  });
 }
 // ---- one cue at audio time T ----
+// ---- snake mouth: claw strokes measured from a mostly-closed rest pulse ----
+// Physical: the claw gets a new target every FLUTTER_STEP s (as fast as the claw and relay keep up).
+// Picture: the jaws snap open/shut at the recording's rattle rate, starting and stopping with it.
+const SNAKE_REST=-.2,FLUTTER_STEP=.06,FLUTTER_US=[10,110],STRIKE_OPEN_US=320,RATTLE_HZ=12;
+function clawPulse(off){const i=JK.h,j=state.joints[i],base=pulseFor(i,SNAKE_REST),dir=Math.sign(pulseFor(i,1)-pulseFor(i,0))||1;return Math.max(j.low,Math.min(j.high,Math.round(base+dir*off)));}
+function realClaw(tok,off){if(!(tok.real&&real&&LIVE)||!state.joints[JK.h].verified)return;const pu=clawPulse(off);if(tok.sent[JK.h]===pu)return;tok.sent[JK.h]=pu;
+ raw('/api/goto',{revision:state.revision,owner,slot:JK.h,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}
+function flutterAt(dur,T,tok){
+ atCue(T,tok,()=>{tok.flutter={t0:performance.now(),t1:performance.now()+dur*1000};glides.delete(JK.h);});
+ atCue(T+dur,tok,()=>{tok.flutter=null;callPicture(picFor(JK.h,SNAKE_REST),90);});
+ const n=Math.floor(dur/FLUTTER_STEP);
+ for(let k=0;k<n;k++)atCue(T-SHOW_LEAD+k*FLUTTER_STEP,tok,()=>realClaw(tok,FLUTTER_US[k%2?0:1]));
+ atCue(T-SHOW_LEAD+dur,tok,()=>realClaw(tok,0));}
+function clawAt(kind,T,tok){
+ const open=kind==='open';
+ atCue(open?T-SHOW_LEAD:T-SHOW_LEAD*.6,tok,()=>realClaw(tok,open?STRIKE_OPEN_US:0));
+ atCue(T,tok,()=>callPicture(picFor(JK.h,open?.6:SNAKE_REST-.1),open?420:110));}
 function cueAt(c,T,B,tok){
- if(c.sfx)S.fxAt(c.sfx,T,c.jaw===undefined?undefined:CALL_TIME);if(c.say)atCue(T,tok,()=>S.sayAt(c.say,S.clock(),c.voice,tok));
+ if(c.sfx)S.fxAt(c.sfx,T,c.sd?c.sd*B:c.jaw===undefined?undefined:CALL_TIME);
+ if(c.flutter)flutterAt(c.flutter*B,T,tok);if(c.claw)clawAt(c.claw,T,tok);if(c.say)atCue(T,tok,()=>S.sayAt(c.say,S.clock(),c.voice,tok));
  const {h,...body}=c.p||{};
  atCue(T,tok,()=>{
   glideTo(body,(c.d||.25)*B,tok);
@@ -1180,7 +1203,8 @@ function cueAt(c,T,B,tok){
  if(Object.keys(body).length)atCue(T-SHOW_LEAD,tok,()=>realPose(body,tok));}
 function showStart(k){stopMove();release();const m=MOVES[k],tok={k,alive:true,loop:1,real:real,sent:[]};show=tok;glides.clear();
  if(tok.real&&real&&LIVE&&state.held)for(let i=0;i<6;i++){const h=state.held[i];if(h&&state.joints[i].verified){const v=vOfPulse(i,h);mv.cur[i]=v;J[i].v=picFor(i,v);tok.sent[i]=h;}}
- if(m.look==='dog'||m.look==='snake'){
+ if(m.look==='snake'){tok.jawBase=null;callPicture(picFor(JK.h,SNAKE_REST),300);realClaw(tok,0);}
+ if(m.look==='dog'){
   const pulse=tok.real&&state.held&&state.held[JK.h];
   const j=state.joints[JK.h];
   tok.jawBase=pulse&&j.verified&&pulse>=j.low&&pulse<=j.high?vOfPulse(JK.h,pulse):null;
@@ -1214,7 +1238,7 @@ for(const sg of SONGS)MOVES.push({n:sg.n,kid:sg.kid,look:sg.look,sing:{...parseS
 const RATE=[0,50,100,200,350]; // µs per second for each speed level (firmware steps × 50 ticks)
 const mgrid=$('mgrid');
 function addTile(m,k){
- const fr=m.cues?m.cues.map(c=>c.jaw===undefined?c.p||{}:{...c.p,h:c.jaw}):m.sing?m.sing.cues.map(c=>c.p):[...(m.intro||[]),...m.loop].map(f=>Object.fromEntries(f.v.map((v,i)=>[Object.keys(JK)[i],v]).filter(e=>e[1]!==null&&e[1]!==undefined)));
+ const fr=m.cues?m.cues.map(c=>c.jaw===undefined?(c.flutter||c.claw?{...c.p,h:0}:c.p||{}):{...c.p,h:c.jaw}):m.sing?m.sing.cues.map(c=>c.p):[...(m.intro||[]),...m.loop].map(f=>Object.fromEntries(f.v.map((v,i)=>[Object.keys(JK)[i],v]).filter(e=>e[1]!==null&&e[1]!==undefined)));
  const used=J.map((_j,i)=>fr.some(p=>p[Object.keys(JK)[i]]!==undefined));
  const t=document.createElement('button');t.className='mtile'+(m.sing?' song':m.cues?' char':'');t.dataset.testid='move-'+k;t.dataset.k=k;
  t.innerHTML=`<i aria-hidden="true">${moveArt(m)}</i><b>${esc(m.n)}</b><span class="dots">${J.map((j,i)=>`<span style="--c:var(${j.c})" class="${used[i]?'u':''}"></span>`).join('')}</span>`;
@@ -1300,7 +1324,7 @@ const S=(()=>{
  const unlock=()=>{init();if(ctx&&ctx.state==='suspended')ctx.resume().catch(()=>{});loadSamples();if(!voiceReady&&window.speechSynthesis){voiceReady=true;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch{}}};
  const now=()=>ctx?ctx.currentTime:0;
  function tone(f,t,dur,o={}){if(!ctx)return;const {type='triangle',vol=.2,glide=0,attack=.005}=o;const os=ctx.createOscillator(),g=ctx.createGain();os.type=type;os.frequency.setValueAtTime(f,t);if(glide)os.frequency.exponentialRampToValueAtTime(glide,t+dur);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+dur);os.connect(g);g.connect(routed||master);os.start(t);os.stop(t+dur+.05);}
- function noise(t,dur,o={}){if(!ctx)return;const {vol=.2,type='highpass',f=6000,q=1,f2=0}=o;const s=ctx.createBufferSource();s.buffer=nb;const b=ctx.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f2)b.frequency.exponentialRampToValueAtTime(f2,t+dur);b.Q.value=q;const g=ctx.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(b);b.connect(g);g.connect(routed||master);s.start(t,Math.random()*.24);s.stop(t+dur+.05);}
+ function noise(t,dur,o={}){if(!ctx)return;const {vol=.2,type='highpass',f=6000,q=1,f2=0}=o;const s=ctx.createBufferSource();s.buffer=nb;const b=ctx.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f2)b.frequency.exponentialRampToValueAtTime(f2,t+dur);b.Q.value=q;const g=ctx.createGain();if(o.swell){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.12);g.gain.setValueAtTime(vol,t+Math.max(.13,dur-.35));}else g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(b);b.connect(g);g.connect(routed||master);s.start(t,Math.random()*.24);s.stop(t+dur+.05);}
  const hz=m=>440*Math.pow(2,(m-69)/12);
  const SFX={
   click:t=>tone(1200,t,.04,{type:'sine',vol:.05}),
@@ -1329,6 +1353,10 @@ const S=(()=>{
   }else{
    tone(430,t,d*.85,{type:'sawtooth',vol:.24,glide:120});noise(t,d,{type:'bandpass',f:860,f2:290,q:1.25,vol:.36});
   }},
+  // Rattle: the real rattlesnake recording for the whole flutter (clicks if it hasn't loaded).
+  rattleCue:(t,d=1.6)=>{const span=Math.min(d,1.9);if(sample('rattle',t,1,1,0,span))return;for(let k=0;k*.042<span;k++)noise(t+k*.042,.03,{type:'bandpass',f:4800,q:2,vol:.22});},
+  // Long hiss that swells, holds through the lunge and bite, then fades.
+  hissLong:(t,d=1.6)=>{noise(t,d,{type:'bandpass',f:6400,f2:4600,q:2.1,vol:.6,swell:1});noise(t,d*.95,{type:'highpass',f:7200,vol:.22,swell:1});},
   hissCue:(t,d=.64)=>{noise(t,d,{type:'bandpass',f:6400,f2:4100,q:2.1,vol:.6});noise(t,d*.92,{type:'highpass',f:7200,vol:.22});},
   gripCue:(t,d=.32)=>{const dur=Math.max(.14,Math.min(2,d));tone(245,t,dur,{type:'triangle',vol:.14,glide:430});noise(t,dur,{type:'bandpass',f:1280,f2:520,q:1.4,vol:.14});},
   peek:t=>{say('Peek a boo!',t,{pitch:1.8,rate:1.1});tone(hz(84),t+.5,.25,{type:'sine',vol:.15});tone(hz(88),t+.62,.3,{type:'sine',vol:.15});},
@@ -1537,7 +1565,7 @@ function costume(name,x,y,a,len,t,op){
  if(name==='dog'||name==='snake')op=Math.max(0,Math.min(1.3,op*1.5));
  const face=(skin,hx,mouthC='#7a1f1f',teeth=true)=>jaws(op,hx,`<path d="M${hx} -1h14q4 0 4 3H${hx}z" fill="${skin}"/>${teeth?`<path d="M${hx+4} 2l2 3 2-3M${hx+10} 2l2 3 2-3" fill="#fff"/>`:''}`,`<path d="M${hx} 1h13q3 0 3-3H${hx}z" fill="${skin}"/>`,`<ellipse cx="${hx+6}" cy="0" rx="${3+op*5}" ry="${.6+op*4}" fill="${mouthC}"/>`);
  switch(name){
-  case 'snake':{const fl=op>.35||(!(show&&MOVES[show.k].cues)&&Math.sin(t/90)>.4);return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
+  case 'snake':{const rat=show&&show.flutter,fl=rat?Math.sin(t/22)>-.3:op>.35||(!(show&&MOVES[show.k].cues)&&Math.sin(t/90)>.4);if(rat)op=Math.max(op,.35+.3*Math.abs(Math.sin(t/22)));return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
    <path d="M10 0h${8+op*10}l4 -4M${18+op*10} 0l4 4" stroke="#e8343c" stroke-width="2" fill="none" opacity="${fl?1:0}"/>
    ${jaws(op,8,`<path d="M8 -6q14 -4 22 3l-22 3z" fill="#3fa34d" stroke="#1f5e2a" stroke-width="1.5"/><path d="M22 -1.5l1.5 5 1.5-5" fill="#fff"/><circle cx="27" cy="-2" r=".9" fill="#111"/>`,`<path d="M8 6q12 3 19-3l-19-3z" fill="#7fd08a" stroke="#1f5e2a" stroke-width="1.5"/>`,`<ellipse cx="14" cy="0" rx="${2+op*6}" ry="${.5+op*4}" fill="#5a0f1a"/>`)}`);}
   case 'dog':return at(x,y,a,`<circle cx="2" cy="0" r="13" fill="#c98a4b"/><ellipse cx="-2" cy="${-13+w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(-25 -2 -13)"/><ellipse cx="-2" cy="${13-w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(25 -2 13)"/>${eye(4,-6,2.6)}${eye(4,6,2.6)}
