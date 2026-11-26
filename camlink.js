@@ -129,7 +129,7 @@ async function view(id,keyHex,video,onStatus=()=>{},img=null){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!live)schedule(200);});
   return {get live(){return live;}};
 }
-// The controller uses the arm camera only. This firmware sends 160x120
+// The controller uses the arm camera only. This firmware sends 320x240 (or 160x120 fallback)
 // authenticated JPEGs on the shared photo topic; the legacy sender uses 640px.
 async function viewArm(id,keyHex,img,onStatus=()=>{}){
   const key=await aesKey(keyHex),me=rid(),photoTopic=`rarm1/${id}/j`;
@@ -142,7 +142,7 @@ async function viewArm(id,keyHex,img,onStatus=()=>{}){
       const jpg=await openBytes(key,bytes);
       blob=new Blob([jpg],{type:'image/jpeg'});
       bitmap=await createImageBitmap(blob);
-      if(bitmap.width!==160||bitmap.height!==120||order<=displayed)return;
+      if(!((bitmap.width===320&&bitmap.height===240)||(bitmap.width===160&&bitmap.height===120))||order<=displayed)return;
     }catch{return;}
     finally{if(bitmap)bitmap.close();}
     displayed=order;
