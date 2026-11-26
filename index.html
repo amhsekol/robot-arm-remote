@@ -1012,12 +1012,12 @@ function sendOledMove(id){
 // ---- animal shows: b = beat, p = pose (-1..1; h = mouth/claw: + open), d = glide length in beats ----
 const MOUTH=v=>({h:v});
 const CHAR={
- // Snake: tongue + rattle = the claw vibrates fast for the whole rattle; hiss = rear back, mouth opens,
+ // Snake: tongue + rattle = the wrist (joint under the twist) shakes hard and the twist swings, claw holds; hiss = rear back, mouth opens,
  // lunge forward, one bite at the far point, pull back. Between those the claw holds still.
  'Snake':{song:'snake',look:'snake',len:10,cues:[
-  {b:0,p:{t:-.3,w:.3,l:.3,b:.1},d:3},
+  {b:0,p:{t:-.3,l:.3,b:.1,w:0},d:3},
   {b:1.25,flutter:2.5,sfx:'rattleCue',sd:2.5,burst:'wiggle',n:6},
-  {b:4,p:{t:.3,w:-.3,l:.3,b:.1},d:2.5},
+  {b:4,p:{t:.3,l:.3,b:.1},d:2.5},
   {b:6,p:{l:.45,b:.4,w:-.3},d:.75,claw:'open',sfx:'hissLong',sd:2.4},
   {b:7,p:{l:-.05,b:-.25,w:.2},d:.5,burst:'wiggle',n:8},
   {b:8.3,claw:'bite',sfx:'snap',shake:1,burst:'wiggle',n:14,glow:'#4dff9a'},
@@ -1025,10 +1025,11 @@ const CHAR={
  'Guard dog':{song:'dog',look:'dog',len:8,cues:[
   {b:0,p:{t:-.25,l:.3,w:.1},d:2},
   {b:2,p:{t:.25},d:2},
-  {b:4,p:{t:0,l:.4,w:.25},d:.4},
-  {b:4.5,p:{w:.4},jaw:1,d:.12,sfx:'barkCue',shake:1,burst:'stars',n:11},
-  {b:5.83,p:{w:.34},jaw:1,d:.12,sfx:'barkCue',shake:1,burst:'stars',n:9},
-  {b:7,p:{l:.25,w:0},d:1}]},
+  {b:2.9,p:{t:0,l:.4,w:.25},d:.4},
+  // each bark opens the claw fully and closes it again (~1.8 s), so the barks are spaced apart
+  {b:3.4,p:{w:.4},jaw:1,d:.12,sfx:'barkCue',shake:1,burst:'stars',n:11},
+  {b:6.6,p:{w:.34},jaw:1,d:.12,sfx:'barkCue',shake:1,burst:'stars',n:9},
+  {b:7.6,p:{l:.25,w:0},d:.4}]},
  'Peek-a-boo':{song:'boo',look:'ghost',len:8,cues:[
   {b:0,p:{t:0,l:0,b:.45,w:-.5,h:-.6},d:1.5},
   {b:2,p:{w:-.2},d:.4,say:'Peek a',voice:{pitch:1.6}},{b:2.5,p:{w:-.5},d:.3},
@@ -1137,7 +1138,7 @@ function glideTo(p,dur,tok){const t0=performance.now();for(const [k,v] of Object
   glides.set(i,{from:J[i].v,to:picFor(i,vv),t0,t1:t0+Math.max(60,d*1000)});mv.cur[i]=vv;}}
 function showLoop(){if(!show)return;const n=performance.now();
  for(const [i,g] of glides){const k=Math.min(1,(n-g.t0)/(g.t1-g.t0)),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;J[i].v=g.from+(g.to-g.from)*e;if(k>=1)glides.delete(i);}
- const f=show.flutter;if(f&&n<f.t1){const ph=((n-f.t0)/1000*RATTLE_HZ)%1;J[JK.h].v=picFor(JK.h,ph<.5?.35:-.15);}
+ const f=show.flutter;if(f&&n<f.t1){const ph=((n-f.t0)/1000*RATTLE_HZ)%1;J[JK.w].v=picFor(JK.w,ph<.5?WRIST_PIC:-WRIST_PIC);}
  draw();game();requestAnimationFrame(showLoop);}
 // ---- real arm ----
 function realPose(p,tok){if(!(tok.real&&real&&LIVE))return;for(const [k,v] of Object.entries(p)){const i=JK[k];if(!state.joints[i].verified)continue;
@@ -1147,31 +1148,32 @@ const CALL_TIME=.64, CALL_RETURN=.28;
 function atCue(T,tok,fn){setTimeout(()=>{if(tok.alive&&show===tok)fn();},Math.max(0,(T-S.clock())*1000));}
 function callPicture(to,ms){const i=JK.h,t0=performance.now();glides.set(i,{from:J[i].v,to,t0,t1:t0+ms});}
 function animateCall(c,T,tok){
- // Both visual phases are inside the animal sound. The physical claw receives
- // a short, bounded stroke; no early packet for the jaw, and no idle commands.
+ // Dog bark: the claw opens all the way to its saved open limit, then closes back to where it
+ // started. Open time follows the claw's real travel (about 1000 us/s), so it reaches the limit.
+ const i=JK.h,live=tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[i].verified;
+ const tOpen=live?Math.max(.15,Math.min(.9,Math.abs(pulseFor(i,1)-pulseFor(i,tok.jawBase))/1000)):.3;
  let started=false;
  atCue(T,tok,()=>{
-  if(S.clock()>T+CALL_RETURN*.65)return; // skip a missed onset instead of opening late
+  if(S.clock()>T+.2)return; // skip a missed onset instead of opening late
   started=true;tok.calling=true;
-  callPicture(J[JK.h].max-(1-c.jaw)*45,90);
-  if(tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[JK.h].verified){
-   const start=pulseFor(JK.h,tok.jawBase),target=pulseFor(JK.h,c.jaw);
-   const peak=start+Math.sign(target-start)*Math.min(175,Math.abs(target-start));
-   if(peak!==start)realPose({h:vOfPulse(JK.h,peak)},tok);
-  }
+  callPicture(J[i].max,tOpen*1000);
+  if(live)realPose({h:1},tok);
  });
- atCue(T+CALL_RETURN,tok,()=>{
+ atCue(T+tOpen,tok,()=>{
   if(!started)return;
   tok.calling=false;
-  callPicture(tok.jawPictureRest,150);
-  if(tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[JK.h].verified)realPose({h:tok.jawBase},tok);
+  callPicture(tok.jawPictureRest,tOpen*1000);
+  if(live)realPose({h:tok.jawBase},tok);
  });
 }
 // ---- one cue at audio time T ----
 // ---- snake mouth: claw strokes measured from a mostly-closed rest pulse ----
-// Physical: the claw gets a new target every FLUTTER_STEP s (as fast as the claw and relay keep up).
+// During the rattle the wrist shakes and the twist swings; the claw holds at its rest.
 // Picture: the jaws snap open/shut at the recording's rattle rate, starting and stopping with it.
-const SNAKE_REST=-.2,FLUTTER_STEP=.06,FLUTTER_US=[10,110],STRIKE_OPEN_US=320,RATTLE_HZ=12;
+// Rattle shake is on the wrist; its servo moves at most 350 us/s at show speed, so each
+// stroke is sized to finish before the next (WRIST_STEP s, +/-WRIST_US).
+const WRIST_STEP=.13,WRIST_US=24,WRIST_PIC=.32;
+const SNAKE_REST=-.2,STRIKE_OPEN_US=320,RATTLE_HZ=12;
 // While rattling, the claw also twists one way, then the other. Each swing is sized so the twist
 // servo (350 us/s at show speed) finishes it before the next one starts, so it stays centred.
 const TWIST_STEP=.43,TWIST_US=75,TWIST_PIC=.55;
@@ -1184,12 +1186,12 @@ function twistAt(dur,T,tok){const i=JK.x,n=Math.max(2,Math.floor(dur/TWIST_STEP)
  for(let k=0;k<=n;k++){const side=k===n?0:(k%2?-1:1);
   atCue(T-SHOW_LEAD+k*step,tok,()=>{const base=pulseFor(i,0);realJoint(tok,i,base+side*TWIST_US);});
   atCue(T+k*step,tok,()=>{const t0=performance.now();glides.set(i,{from:J[i].v,to:picFor(i,side*TWIST_PIC),t0,t1:t0+step*1000});mv.cur[i]=0;});}}
-function flutterAt(dur,T,tok){twistAt(dur,T,tok);
- atCue(T,tok,()=>{tok.flutter={t0:performance.now(),t1:performance.now()+dur*1000};glides.delete(JK.h);});
- atCue(T+dur,tok,()=>{tok.flutter=null;callPicture(picFor(JK.h,SNAKE_REST),90);});
- const n=Math.floor(dur/FLUTTER_STEP);
- for(let k=0;k<n;k++)atCue(T-SHOW_LEAD+k*FLUTTER_STEP,tok,()=>realClaw(tok,FLUTTER_US[k%2?0:1]));
- atCue(T-SHOW_LEAD+dur,tok,()=>realClaw(tok,0));}
+function flutterAt(dur,T,tok){twistAt(dur,T,tok);const i=JK.w;
+ atCue(T,tok,()=>{tok.flutter={t0:performance.now(),t1:performance.now()+dur*1000};glides.delete(i);});
+ atCue(T+dur,tok,()=>{tok.flutter=null;const t0=performance.now();glides.set(i,{from:J[i].v,to:picFor(i,0),t0,t1:t0+120});mv.cur[i]=0;});
+ const n=Math.floor(dur/WRIST_STEP);
+ for(let k=0;k<n;k++)atCue(T-SHOW_LEAD+k*WRIST_STEP,tok,()=>realJoint(tok,i,pulseFor(i,0)+(k%2?-1:1)*WRIST_US));
+ atCue(T-SHOW_LEAD+dur,tok,()=>realJoint(tok,i,pulseFor(i,0)));}
 function clawAt(kind,T,tok){
  const open=kind==='open';
  atCue(open?T-SHOW_LEAD:T-SHOW_LEAD*.6,tok,()=>realClaw(tok,open?STRIKE_OPEN_US:0));
@@ -1574,7 +1576,7 @@ function costume(name,x,y,a,len,t,op){
  if(name==='dog'||name==='snake')op=Math.max(0,Math.min(1.3,op*1.5));
  const face=(skin,hx,mouthC='#7a1f1f',teeth=true)=>jaws(op,hx,`<path d="M${hx} -1h14q4 0 4 3H${hx}z" fill="${skin}"/>${teeth?`<path d="M${hx+4} 2l2 3 2-3M${hx+10} 2l2 3 2-3" fill="#fff"/>`:''}`,`<path d="M${hx} 1h13q3 0 3-3H${hx}z" fill="${skin}"/>`,`<ellipse cx="${hx+6}" cy="0" rx="${3+op*5}" ry="${.6+op*4}" fill="${mouthC}"/>`);
  switch(name){
-  case 'snake':{const rat=show&&show.flutter,fl=rat?Math.sin(t/22)>-.3:op>.35||(!(show&&MOVES[show.k].cues)&&Math.sin(t/90)>.4);if(rat)op=Math.max(op,.35+.3*Math.abs(Math.sin(t/22)));return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
+  case 'snake':{const rat=show&&show.flutter,fl=rat?Math.sin(t/22)>-.3:op>.35||(!(show&&MOVES[show.k].cues)&&Math.sin(t/90)>.4);return at(x,y,a,`<ellipse cx="4" cy="0" rx="12" ry="9" fill="#3fa34d" stroke="#1f5e2a" stroke-width="2"/>${eye(4,-6,2.8)}${eye(4,6,2.8)}
    <path d="M10 0h${8+op*10}l4 -4M${18+op*10} 0l4 4" stroke="#e8343c" stroke-width="2" fill="none" opacity="${fl?1:0}"/>
    ${jaws(op,8,`<path d="M8 -6q14 -4 22 3l-22 3z" fill="#3fa34d" stroke="#1f5e2a" stroke-width="1.5"/><path d="M22 -1.5l1.5 5 1.5-5" fill="#fff"/><circle cx="27" cy="-2" r=".9" fill="#111"/>`,`<path d="M8 6q12 3 19-3l-19-3z" fill="#7fd08a" stroke="#1f5e2a" stroke-width="1.5"/>`,`<ellipse cx="14" cy="0" rx="${2+op*6}" ry="${.5+op*4}" fill="#5a0f1a"/>`)}`);}
   case 'dog':return at(x,y,a,`<circle cx="2" cy="0" r="13" fill="#c98a4b"/><ellipse cx="-2" cy="${-13+w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(-25 -2 -13)"/><ellipse cx="-2" cy="${13-w}" rx="5" ry="10" fill="#7a4b22" transform="rotate(25 -2 13)"/>${eye(4,-6,2.6)}${eye(4,6,2.6)}
