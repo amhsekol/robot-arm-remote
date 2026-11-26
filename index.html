@@ -1172,10 +1172,19 @@ function animateCall(c,T,tok){
 // Physical: the claw gets a new target every FLUTTER_STEP s (as fast as the claw and relay keep up).
 // Picture: the jaws snap open/shut at the recording's rattle rate, starting and stopping with it.
 const SNAKE_REST=-.2,FLUTTER_STEP=.06,FLUTTER_US=[10,110],STRIKE_OPEN_US=320,RATTLE_HZ=12;
+// While rattling, the claw also twists one way, then the other. Each swing is sized so the twist
+// servo (350 us/s at show speed) finishes it before the next one starts, so it stays centred.
+const TWIST_STEP=.43,TWIST_US=75,TWIST_PIC=.55;
 function clawPulse(off){const i=JK.h,j=state.joints[i],base=pulseFor(i,SNAKE_REST),dir=Math.sign(pulseFor(i,1)-pulseFor(i,0))||1;return Math.max(j.low,Math.min(j.high,Math.round(base+dir*off)));}
 function realClaw(tok,off){if(!(tok.real&&real&&LIVE)||!state.joints[JK.h].verified)return;const pu=clawPulse(off);if(tok.sent[JK.h]===pu)return;tok.sent[JK.h]=pu;
  raw('/api/goto',{revision:state.revision,owner,slot:JK.h,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}
-function flutterAt(dur,T,tok){
+function realJoint(tok,i,pu){if(!(tok.real&&real&&LIVE)||!state.joints[i].verified)return;const j=state.joints[i];pu=Math.max(j.low,Math.min(j.high,Math.round(pu)));if(tok.sent[i]===pu)return;tok.sent[i]=pu;
+ raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}
+function twistAt(dur,T,tok){const i=JK.x,n=Math.max(2,Math.floor(dur/TWIST_STEP)),step=dur/n;
+ for(let k=0;k<=n;k++){const side=k===n?0:(k%2?-1:1);
+  atCue(T-SHOW_LEAD+k*step,tok,()=>{const base=pulseFor(i,0);realJoint(tok,i,base+side*TWIST_US);});
+  atCue(T+k*step,tok,()=>{const t0=performance.now();glides.set(i,{from:J[i].v,to:picFor(i,side*TWIST_PIC),t0,t1:t0+step*1000});mv.cur[i]=0;});}}
+function flutterAt(dur,T,tok){twistAt(dur,T,tok);
  atCue(T,tok,()=>{tok.flutter={t0:performance.now(),t1:performance.now()+dur*1000};glides.delete(JK.h);});
  atCue(T+dur,tok,()=>{tok.flutter=null;callPicture(picFor(JK.h,SNAKE_REST),90);});
  const n=Math.floor(dur/FLUTTER_STEP);
