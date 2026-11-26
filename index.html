@@ -1132,7 +1132,10 @@ function parseSong(txt){const notes=[],cues=[];let line=[],lines=[];
 // ---- picture glides ----
 const glides=new Map();
 function vOfPulse(i,pu){const j=state.joints[i],d=pu>=j.start?(pu-j.start)/((j.high-j.start)||1):(pu-j.start)/((j.start-j.low)||1);return Math.max(-1,Math.min(1,d*(j.reverse?-1:1)));}
-const REAL_RATE=i=>i===5?1000:350; // us per second at Fast during shows (claw: fast glide)
+// us per second each joint glides at during shows (arm speed Fast). Newer arm software reports its
+// per-joint rates as us per 20 ms tick in state.rates; older software is 350 (claw 1000).
+const showRates=()=>{const r=state&&state.rates;return Array.isArray(r)&&r.length===6&&r.every(x=>Number.isFinite(x)&&x>0&&x<=80)?r.map(x=>x*50):[350,350,350,350,350,1000];};
+const REAL_RATE=i=>showRates()[i];
 function glideTo(p,dur,tok){const t0=performance.now();for(const [k,v] of Object.entries(p)){const i=JK[k];const vv=Math.max(-CAP[i],Math.min(CAP[i],v));let d=dur;
   if(tok&&tok.real&&real&&LIVE&&state.joints[i].verified)d=Math.max(d,Math.abs(pulseFor(i,vv)-pulseFor(i,mv.cur[i]))/REAL_RATE(i));
   glides.set(i,{from:J[i].v,to:picFor(i,vv),t0,t1:t0+Math.max(60,d*1000)});mv.cur[i]=vv;}}
@@ -1151,7 +1154,7 @@ function animateCall(c,T,tok){
  // Dog bark: the claw opens all the way to its saved open limit, then closes back to where it
  // started. Open time follows the claw's real travel (about 1000 us/s), so it reaches the limit.
  const i=JK.h,live=tok.jawBase!==null&&tok.real&&real&&LIVE&&state.joints[i].verified;
- const tOpen=live?Math.max(.15,Math.min(.9,Math.abs(pulseFor(i,1)-pulseFor(i,tok.jawBase))/1000)):.3;
+ const tOpen=live?Math.max(.15,Math.min(.9,Math.abs(pulseFor(i,1)-pulseFor(i,tok.jawBase))/REAL_RATE(i))):.3;
  let started=false;
  atCue(T,tok,()=>{
   if(S.clock()>T+.2)return; // skip a missed onset instead of opening late
@@ -1171,12 +1174,13 @@ function animateCall(c,T,tok){
 // During the rattle the wrist shakes and the twist swings; the claw holds at its rest.
 // Picture: the jaws snap open/shut at the recording's rattle rate, starting and stopping with it.
 // Rattle shake is on the wrist; its servo moves at most 350 us/s at show speed, so each
-// stroke is sized to finish before the next (WRIST_STEP s, +/-WRIST_US).
-const WRIST_STEP=.13,WRIST_US=24,WRIST_PIC=.32;
+// stroke is sized from the arm's reported wrist rate so it finishes before the next one.
+const WRIST_PIC=.32;
+const wristPlan=()=>{const r=REAL_RATE(JK.w),step=r>=900?.09:.13;return {step,us:Math.round(Math.min(70,r*step*(r>=900?.32:.42)))};};
 const SNAKE_REST=-.2,STRIKE_OPEN_US=320,RATTLE_HZ=12;
 // While rattling, the claw also twists one way, then the other. Each swing is sized so the twist
 // servo (350 us/s at show speed) finishes it before the next one starts, so it stays centred.
-const TWIST_STEP=.43,TWIST_US=75,TWIST_PIC=.55;
+const TWIST_STEP=.43,TWIST_PIC=.55;
 function clawPulse(off){const i=JK.h,j=state.joints[i],base=pulseFor(i,SNAKE_REST),dir=Math.sign(pulseFor(i,1)-pulseFor(i,0))||1;return Math.max(j.low,Math.min(j.high,Math.round(base+dir*off)));}
 function realClaw(tok,off){if(!(tok.real&&real&&LIVE)||!state.joints[JK.h].verified)return;const pu=clawPulse(off);if(tok.sent[JK.h]===pu)return;tok.sent[JK.h]=pu;
  raw('/api/goto',{revision:state.revision,owner,slot:JK.h,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}
@@ -1184,13 +1188,13 @@ function realJoint(tok,i,pu){if(!(tok.real&&real&&LIVE)||!state.joints[i].verifi
  raw('/api/goto',{revision:state.revision,owner,slot:i,pulse:pu}).catch(e=>{stopMove();realOff();lose(e);});}
 function twistAt(dur,T,tok){const i=JK.x,n=Math.max(2,Math.floor(dur/TWIST_STEP)),step=dur/n;
  for(let k=0;k<=n;k++){const side=k===n?0:(k%2?-1:1);
-  atCue(T-SHOW_LEAD+k*step,tok,()=>{const base=pulseFor(i,0);realJoint(tok,i,base+side*TWIST_US);});
+  atCue(T-SHOW_LEAD+k*step,tok,()=>{const base=pulseFor(i,0),us=Math.min(160,REAL_RATE(i)*step*.4);realJoint(tok,i,base+side*us);});
   atCue(T+k*step,tok,()=>{const t0=performance.now();glides.set(i,{from:J[i].v,to:picFor(i,side*TWIST_PIC),t0,t1:t0+step*1000});mv.cur[i]=0;});}}
 function flutterAt(dur,T,tok){twistAt(dur,T,tok);const i=JK.w;
  atCue(T,tok,()=>{tok.flutter={t0:performance.now(),t1:performance.now()+dur*1000};glides.delete(i);});
  atCue(T+dur,tok,()=>{tok.flutter=null;const t0=performance.now();glides.set(i,{from:J[i].v,to:picFor(i,0),t0,t1:t0+120});mv.cur[i]=0;});
- const n=Math.floor(dur/WRIST_STEP);
- for(let k=0;k<n;k++)atCue(T-SHOW_LEAD+k*WRIST_STEP,tok,()=>realJoint(tok,i,pulseFor(i,0)+(k%2?-1:1)*WRIST_US));
+ const wp=wristPlan(),n=Math.floor(dur/wp.step);
+ for(let k=0;k<n;k++)atCue(T-SHOW_LEAD+k*wp.step,tok,()=>realJoint(tok,i,pulseFor(i,0)+(k%2?-1:1)*wp.us));
  atCue(T-SHOW_LEAD+dur,tok,()=>realJoint(tok,i,pulseFor(i,0)));}
 function clawAt(kind,T,tok){
  const open=kind==='open';
