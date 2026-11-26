@@ -142,7 +142,7 @@ async function viewArm(id,keyHex,img,onStatus=()=>{}){
       const jpg=await openBytes(key,bytes);
       blob=new Blob([jpg],{type:'image/jpeg'});
       bitmap=await createImageBitmap(blob);
-      if(!((bitmap.width===320&&bitmap.height===240)||(bitmap.width===160&&bitmap.height===120))||order<=displayed)return;
+      if(bitmap.width<160||bitmap.width>352||bitmap.height<90||bitmap.height>288||order<=displayed)return;
     }catch{return;}
     finally{if(bitmap)bitmap.close();}
     displayed=order;

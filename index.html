@@ -775,7 +775,7 @@ if(REMOTE){
  };
 }
 if(REMOTE&&camOn){
- const s=document.createElement('script');s.src='camlink.js?v=arm-camera-2';
+ const s=document.createElement('script');s.src='camlink.js?v=arm-camera-3';
  const st=$('stage'),pill=$('camPill'),txt=$('camText'),img=$('cami');
  pill.hidden=false;
  const showCamera=k=>{const on=k==='live-arm';img.hidden=!on;if(on&&window.__armDrive)window.__armDrive(true);st.classList.toggle('cam',on);pill.classList.toggle('ok',on);pill.classList.toggle('bad',k==='error');txt.textContent=on?'Arm camera: live':k==='error'?'Arm camera: unavailable':'Arm camera: waiting';};
